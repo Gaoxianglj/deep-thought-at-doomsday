@@ -439,9 +439,22 @@ sim → engine        validation → engine
 ### 5.10 新增 / 替换属性、美术与文案
 
 - **新属性（纯数据）**：`src/data/stats.ts` 加 `{ id, name, min, max, initial, dailyDelta, deathAtZero?, deathText? }`。引擎自动给每个角色初始化、每日衰减、可被 `stat.<id>.dailyDelta` 修正；UI 的角色卡是否展示它去看 `src/ui/components/character-card.ts` / `screens/status.ts`（读现状，不要假设）。旧存档缺该属性时 `sanitize` 补初始值。
-- **美术**：路径 `public/art/<类别>/<id>/<状态>.webp`，类别 `characters | items | locations | events | ui`。加载回退链：`<状态>.webp` → `normal.webp` → 程序生成的占位图（id 哈希色块 + 名称前 2 字）。角色的状态名取其身上有 `artState` 且 `priority` 最大的状态，否则 `normal`（`getArtState`）。替换 = 覆盖同名文件。美术不进预缓存，运行时 StaleWhileRevalidate 缓存。
+- **美术**：路径 `public/art/<类别>/<id>/<状态>.webp`，类别 `characters | items | locations | events | endings | backgrounds | ui`。加载回退链：`<状态>.webp` → `normal.webp` → 程序生成的占位图（id 哈希色块 + 名称前 2 字）。角色的状态名取其身上有 `artState` 且 `priority` 最大的状态，否则 `normal`（`getArtState`）。替换 = 覆盖同名文件。美术不进预缓存，运行时 StaleWhileRevalidate 缓存。
 - **界面文案**：`src/data/ui-text.ts`（`uiText`，占位符 `{name}` 由 UI 的 `fmt()` 填）；引擎错误码 → 中文说明在 `uiText.errors`，新增错误码必须在这里加一行，否则 UI 显示"操作无效（code）"。
 - **引擎自动日志文案**：`src/data/config.ts` 的 `texts`（键见 4.5）。缺省的键不写日志（校验给 warning）。
+
+### 5.11 生成美术与摆放场景
+
+**生成流程**（用本机 ChatGPT 应用自带的 codex 命令行生图，消耗用户的 Codex 额度，约 2 分钟一张）：
+
+1. 在 `art-src/jobs/<批次>.tsv` 里每行写一张：`输出路径<TAB>参考图或-<TAB>英文画面描述`。输出路径形如 `characters/<id>/<状态>.png`、`items/<id>/normal.png`，与 `public/art` 的结构一致。写法照抄 `art-src/jobs/batch2.tsv`：角色必须带参考图 `art-src/refs/<角色id>.png` 并复述外貌特征；物品、地点、结局不带参考图，但要带上同一段画风描述。
+2. `scripts/gen-art-batch.sh art-src/jobs/<批次>.tsv 4` 并行生成到 `art-src/raw/`（不进仓库；已存在的会跳过，要重画就先删掉原图）。失败原因看 `art-src/raw/.logs/`。
+3. `python3 scripts/process-art.py` 把原图裁掉透明边、缩小、转成 `public/art/**.webp`（需要 Pillow）。
+4. **逐张看图**：常见问题是偶尔生成失败、或"透明背景"实际带了一块底色。不合格的删掉原图重跑第 2 步。
+
+新角色先让用户提供设定图，存为 `art-src/refs/<角色id>.png`。角色需要的状态图 = 该角色可能出现的各 `artState`（见 `src/data/statuses.ts`），缺的状态自动回退到 `normal`。
+
+**场景摆放**（`src/data/scenes.ts`，类型 `SceneDef`，每张地图一个）：坐标都是相对 16:9 场景画面的百分比。`spots` 是角色脚底中心与立绘高度；`stockAreas` 是某个物品标签的堆放区（按数量排开）；`props` 是单件道具的底边中心与宽度（没列出的道具只出现在背包里）；`hotspots` 是舱门（外出）和日记本的可点击区域。新增道具后要在 `props` 里给它一个位置；换背景图后所有坐标要对着新图重新标。没有场景数据的地图会退回默认布局。
 
 ## 6. "哪些改动必须改引擎"对照表
 
