@@ -44,7 +44,7 @@
 - 状态的全部作用通过 `rules` 表达（如"饥饿：每天健康 −8"）。
 - 阶段 0 占位状态：饥饿、口渴、生病、受伤、发疯、降智模式。
 
-**死亡**：任何 `deathAtZero` 的属性归零即死亡（饥饿/脱水/生病都通过扣健康致死），没有别的写死路径。
+**死亡**：任何 `deathAtZero` 的属性归零即死亡（饥饿/脱水/生病都通过扣健康致死）。引擎里没有别的自动致死路径；内容可以用效果 `{ leaveParty, reason: 'dead' }` 直接写死某个角色（剧情杀）。
 
 **物品（item）**：库存是 `Record<itemId, 数量>`。物品定义：`{ id, name, desc, tags, cost?, maxAtStart?, onUse?, rules? }`。
 
@@ -110,7 +110,7 @@
 { joinParty: 'kiminai' }                          // 该角色加入本局
 { leaveParty: 'self', reason: 'gone' | 'dead', text?: '…' }
 { unlock: 'kiminai' }                             // 局外解锁，立即写入档案
-{ queueEvent: 'rescue_arrives', delay: 3, roles?: {…} }
+{ queueEvent: 'rescue_arrives', delay: 3 }           // 沿用当前的 self 与已绑定角色；到期必定触发，不再检查该事件的 when
 { ending: 'rescued' }
 { log: '{self} 把罐头偷吃了。' }                   // 文案模板：{self} {role:xx} {item:id} {day}
 { if: Condition, then: Effect[], else?: Effect[] }

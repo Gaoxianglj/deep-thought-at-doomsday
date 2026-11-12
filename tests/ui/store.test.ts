@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ContentDB } from '../../src/engine';
-import { Store } from '../../src/ui/store';
+import { LAST_RATIONS_KEY, Store } from '../../src/ui/store';
 import { errorText } from '../../src/ui/text';
 import { makeContent } from '../fixtures/content';
 import { createFakeSave } from './fake-save';
@@ -148,6 +148,21 @@ describe('Store', () => {
     await store.dispatch({ type: 'continueEvent' });
     expect(store.get().screen).toBe('ending');
     expect(store.get().ending?.newUnlocks).toEqual(['gamma']);
+  });
+
+  it('结束一天时记下配给，并写入档案 settings', async () => {
+    const { store } = await setup();
+    await store.startRun({
+      mapId: 'bunker',
+      difficultyId: 'normal',
+      party: ['alpha'],
+      items: { can: 2 },
+    });
+    expect(store.get().lastRations).toBeNull();
+    await store.dispatch({ type: 'setRation', charId: 'alpha', tag: 'food', itemId: 'can' });
+    await store.dispatch({ type: 'endDay' });
+    expect(store.get().lastRations).toEqual({ alpha: { food: 'can' } });
+    expect(store.get().profile?.settings[LAST_RATIONS_KEY]).toEqual({ alpha: { food: 'can' } });
   });
 
   it('保存失败只提示，不阻塞游戏', async () => {

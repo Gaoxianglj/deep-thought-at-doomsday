@@ -1,0 +1,40 @@
+.pwa-banner {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 16px);
+  padding: 8px 12px;
+  border: 1px solid #343a42;
+  border-radius: 8px;
+  background: #1e2228;
+  color: #e8e6e1;
+  font-size: 14px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+}
+
+.pwa-banner__text {
+  flex: 1 1 auto;
+}
+
+.pwa-banner__btn {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid #343a42;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pwa-banner__btn--primary {
+  border-color: #e0a63a;
+  background: #e0a63a;
+  color: #1a1408;
+}

@@ -1,4 +1,5 @@
 /** 界面文案辅助：模板填充、错误码翻译。纯函数，不依赖 DOM。 */
+import type { Content } from '../engine';
 import { uiText } from '../data/ui-text';
 
 export { uiText as T };
@@ -15,7 +16,7 @@ export function errorText(code: string): string {
   return uiText.errors[code] ?? fmt(uiText.errors.unknown, { code });
 }
 
-/** 标签显示名 */
-export function tagName(tag: string): string {
-  return uiText.tagNames[tag] ?? tag;
+/** 标签显示名：优先取内容 config.tagNames，没有则用标签原文 */
+export function tagName(content: Content, tag: string): string {
+  return content.config.tagNames?.[tag] ?? tag;
 }

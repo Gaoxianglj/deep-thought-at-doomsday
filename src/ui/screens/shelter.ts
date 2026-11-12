@@ -59,6 +59,44 @@ function rationUsage(run: RunState): Map<string, number> {
 }
 
 // ---------- 配给 ----------
+/** 把昨天的配给套到今天：库存够（含本次已分配）才设置，其余跳过并统一提示 */
+async function reuseRations(store: Store, run: RunState): Promise<void> {
+  const last = store.get().lastRations;
+  if (!last) return;
+  const tags = store.content.config.rationTags;
+  const left = new Map(Object.entries(run.inventory));
+  for (const [id, n] of rationUsage(run)) left.set(id, (left.get(id) ?? 0) - n);
+  let done = 0;
+  let skipped = 0;
+  for (const cid of shelterIds(run)) {
+    for (const tag of tags) {
+      const itemId = last[cid]?.[tag];
+      if (!itemId) continue;
+      if (run.plan.rations[cid]?.[tag] === itemId) {
+        done++;
+        continue;
+      }
+      const prev = run.plan.rations[cid]?.[tag];
+      const free = left.get(itemId) ?? 0;
+      if (free < 1) {
+        skipped++;
+        continue;
+      }
+      const err = await store.dispatch({ type: 'setRation', charId: cid, tag, itemId });
+      if (err) {
+        skipped++;
+        continue;
+      }
+      left.set(itemId, free - 1);
+      if (prev) left.set(prev, (left.get(prev) ?? 0) + 1);
+      done++;
+    }
+  }
+  if (skipped > 0) store.toast(fmt(T.run.rationReuseSkipped, { n: skipped }));
+  else if (done === 0) store.toast(T.run.rationReuseNone);
+  else store.toast(T.run.rationReuseDone, 'success');
+}
+
 function rationSection(store: Store, run: RunState): HTMLElement {
   const { content } = store;
   const tags = content.config.rationTags;
@@ -110,7 +148,7 @@ function rationSection(store: Store, run: RunState): HTMLElement {
         h(
           'label',
           { class: 'ration__tag', attrs: { for: selId } },
-          fmt(T.run.rationSlot, { tag: tagName(tag) }),
+          fmt(T.run.rationSlot, { tag: tagName(content, tag) }),
         ),
         select,
         current &&
@@ -129,21 +167,32 @@ function rationSection(store: Store, run: RunState): HTMLElement {
     'section',
     { class: 'section' },
     h('h2', { class: 'section__title' }, T.run.rations),
+    button(T.run.rationReuse, () => void reuseRations(store, run), {
+      class: 'btn btn--block btn--ghost',
+      disabled: !store.get().lastRations || ids.length === 0,
+      fkey: 'ration-reuse',
+    }),
     over.length > 0 &&
       h(
-        'ul',
-        { class: 'warn-list', attrs: { role: 'alert' } },
-        over.map(([id, n]) =>
-          h(
-            'li',
-            { class: 'warn-list__item' },
-            fmt(T.run.rationOver, {
-              item: itemName(content, id),
-              used: n,
-              have: run.inventory[id] ?? 0,
-            }),
+        'div',
+        { class: 'warn-box', attrs: { role: 'alert' } },
+        h(
+          'ul',
+          { class: 'warn-list' },
+          over.map(([id, n]) =>
+            h(
+              'li',
+              { class: 'warn-list__item' },
+              fmt(T.run.rationOver, {
+                item: itemName(content, id),
+                used: n,
+                have: run.inventory[id] ?? 0,
+              }),
+            ),
           ),
         ),
+        (run.plan.expedition?.carry ?? []).some((id) => over.some(([o]) => o === id)) &&
+          h('p', { class: 'warn-box__note' }, T.run.rationOverNote),
       ),
     ids.length
       ? h('ul', { class: 'ration-list' }, rows)
@@ -481,7 +530,7 @@ async function endDay(store: Store, run: RunState): Promise<void> {
   if (missing.length) {
     messages.push(
       fmt(T.run.endDayNoRation, {
-        tags: tags.map(tagName).join('/'),
+        tags: tags.map((t) => tagName(content, t)).join('/'),
         names: missing.map((id) => content.characters.get(id)?.name ?? id).join('、'),
       }),
     );

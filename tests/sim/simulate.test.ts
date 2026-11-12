@@ -145,4 +145,23 @@ describe('正式数据冒烟', () => {
       expect(s.runs).toBe(20);
     }
   });
+
+  it.skipIf(!ready)('sensibleBot 200 局（普通难度）至少出现 2 种不同结局，且无被拒绝动作', () => {
+    const s = simulateMany(real, {
+      mapId: real.db.maps[0].id,
+      difficultyId: real.db.difficulties[1]?.id ?? real.db.difficulties[0].id,
+      bot: sensibleBot,
+      runs: 200,
+    });
+    expect(s.stuck).toBe(0);
+    expect(s.endings.length).toBeGreaterThanOrEqual(2);
+    expect(Object.keys(s.rejectedCodes)).toEqual([]);
+  });
+
+  it.skipIf(!ready)('同种子同结果（正式数据，含外出与携带）', () => {
+    const o = { mapId: real.db.maps[0].id, difficultyId: real.db.difficulties[0].id };
+    const a = simulateRun(real, { ...o, seed: 'repeat', bot: sensibleBot });
+    simulateRun(real, { ...o, seed: 'other', bot: sensibleBot });
+    expect(simulateRun(real, { ...o, seed: 'repeat', bot: sensibleBot })).toEqual(a);
+  });
 });

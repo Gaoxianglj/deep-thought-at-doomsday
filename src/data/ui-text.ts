@@ -128,6 +128,11 @@ export const uiText = {
     rationNone: '不给',
     rationSlot: '{tag}',
     rationAllocated: '今晚用量 {used} / 库存 {have}',
+    rationReuse: '沿用昨天的配给',
+    rationReuseDone: '已沿用昨天的配给。',
+    rationReuseSkipped: '已沿用昨天的配给，但有 {n} 项库存不足或角色不在，没能沿用。',
+    rationReuseNone: '昨天的配给没有一项能沿用。',
+    rationOverNote: '入夜时先吃配给，剩下的才够携带；携带物不够会取消外出。',
     rationOver: '{item} 不够：配给与外出携带共需 {used}，库存只有 {have}',
     noShelter: '庇护所里没有人。',
     inventory: '库存',
@@ -192,12 +197,8 @@ export const uiText = {
     expeditions: '外出次数',
     expeditionsReturned: '平安归来',
     expeditionsLost: '外出失踪',
-  } as Record<string, string>,
-
-  /** 配给标签 / 物品标签的显示名；不在表中的标签原样显示（建议之后移入内容 config） */
-  tagNames: {
-    food: '食物',
-    water: '水',
+    death: '牺牲人数',
+    leave: '离队人数',
   } as Record<string, string>,
 
   toast: {

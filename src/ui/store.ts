@@ -39,6 +39,8 @@ export interface AppState {
   notices: string[];
   toasts: Toast[];
   ending: EndingInfo | null;
+  /** 昨天结束一天时的配给计划；没有记录为 null */
+  lastRations: Rations | null;
   bootError: string | null;
   /** 屏幕自身草稿状态的版本号；touch() 递增以触发重渲染 */
   rev: number;
@@ -46,8 +48,22 @@ export interface AppState {
 
 export type StartOptions = Omit<NewRunOptions, 'unlocked' | 'seed'> & { seed?: string };
 
-/** 档案 settings 里记录"开局时已解锁的角色"的键，用于结局页统计本局新解锁 */
-export const RUN_BASE_UNLOCKS_KEY = 'ui.runBaseUnlocks';
+/** 档案 settings 里记录"昨天配给"的键（引擎每天清晨会清空配给计划） */
+export const LAST_RATIONS_KEY = 'ui.lastRations';
+
+export type Rations = Record<string, Record<string, string>>;
+
+function readRations(v: unknown): Rations | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const out: Rations = {};
+  for (const [cid, slots] of Object.entries(v)) {
+    if (!slots || typeof slots !== 'object') continue;
+    const row: Record<string, string> = {};
+    for (const [tag, id] of Object.entries(slots)) if (typeof id === 'string') row[tag] = id;
+    if (Object.keys(row).length) out[cid] = row;
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 export function isContentReady(content: Content): boolean {
   return content.maps.size > 0 && content.characters.size > 0 && content.difficulties.size > 0;
@@ -74,6 +90,7 @@ export class Store {
     notices: [],
     toasts: [],
     ending: null,
+    lastRations: null,
     bootError: null,
     rev: 0,
   };
@@ -81,8 +98,6 @@ export class Store {
   private toastSeq = 0;
   /** 串行化存档写入，保证顺序 */
   private saveChain: Promise<unknown> = Promise.resolve();
-  /** 本会话里检测到的新解锁（结局页的后备数据） */
-  private sessionUnlocks: string[] = [];
   private readonly makeSeed: () => string;
 
   constructor(content: Content, save: SaveService, opts: { makeSeed?: () => string } = {}) {
@@ -172,8 +187,13 @@ export class Store {
       }
       await this.save.setLastProfileId(id);
       const { run, notices } = await this.save.loadRun(id);
-      this.sessionUnlocks = [];
-      this.set({ profile, run, notices, ending: null });
+      this.set({
+        profile,
+        run,
+        notices,
+        ending: null,
+        lastRations: run ? readRations(profile.settings[LAST_RATIONS_KEY]) : null,
+      });
       if (run?.phase === 'ended') {
         await this.finish(run);
         return;
@@ -203,7 +223,7 @@ export class Store {
       await this.save.deleteProfile(id);
       if (this.state.profile?.id === id) {
         await this.save.setLastProfileId(null);
-        this.set({ profile: null, run: null, notices: [] });
+        this.set({ profile: null, run: null, notices: [], lastRations: null });
       }
       await this.refreshProfiles();
       this.toast(T.profiles.deleted, 'success');
@@ -223,7 +243,7 @@ export class Store {
   }
 
   async switchProfile(): Promise<void> {
-    this.set({ profile: null, run: null, notices: [], ending: null });
+    this.set({ profile: null, run: null, notices: [], ending: null, lastRations: null });
     await this.refreshProfiles();
     this.set({ screen: 'profiles' });
   }
@@ -247,17 +267,8 @@ export class Store {
       seed,
       unlocked: profile.unlockedCharacters,
     });
-    this.sessionUnlocks = [];
-    const base = { ...profile, settings: { ...profile.settings } };
-    base.settings[RUN_BASE_UNLOCKS_KEY] = [...profile.unlockedCharacters];
-    this.set({ run, notices: [], ending: null, profile: base, screen: 'run' });
-    await this.queue(async () => {
-      try {
-        await this.save.updateProfile(base);
-      } catch {
-        // 只影响结局页的"本局新解锁"统计，忽略
-      }
-    });
+    this.set({ run, notices: [], ending: null, lastRations: null, screen: 'run' });
+    await this.rememberRations(null);
     await this.persist(run);
     return [];
   }
@@ -290,7 +301,10 @@ export class Store {
       this.toast(errorText(result.error), 'error');
       return result.error;
     }
-    this.set({ run: result.state });
+    const rations = action.type === 'endDay' ? readRations(run.plan.rations) : null;
+    this.set({ run: result.state, ...(rations ? { lastRations: rations } : {}) });
+    this.announceUnlocks(run, result.state);
+    if (rations) await this.rememberRations(rations);
     await this.persist(result.state);
     return undefined;
   }
@@ -339,28 +353,44 @@ export class Store {
     });
   }
 
-  /** 用存档层返回的档案替换当前档案；对比解锁列表，有新解锁则提示 */
+  /** 用存档层返回的档案替换当前档案 */
   private acceptProfile(updated: Profile): void {
-    const before = new Set(this.state.profile?.unlockedCharacters ?? []);
-    const fresh = updated.unlockedCharacters.filter(
-      (id) => !before.has(id) && this.content.characters.has(id),
-    );
     // 保留本地写入但存档层可能未回传的 settings 键
     const settings = { ...this.state.profile?.settings, ...updated.settings };
     this.set({ profile: { ...updated, settings } });
-    if (fresh.length) {
-      this.sessionUnlocks.push(...fresh);
-      const names = fresh.map((id) => this.content.characters.get(id)!.name).join('、');
-      this.toast(fmt(T.toast.unlocked, { names }), 'success');
-    }
+  }
+
+  /** 对比动作前后的 run.newUnlocks，有新伙伴解锁就提示 */
+  private announceUnlocks(before: RunState, after: RunState): void {
+    const seen = new Set(before.newUnlocks);
+    const names = after.newUnlocks
+      .filter((id) => !seen.has(id))
+      .map((id) => this.content.characters.get(id)?.name)
+      .filter((n): n is string => !!n);
+    if (names.length) this.toast(fmt(T.toast.unlocked, { names: names.join('、') }), 'success');
   }
 
   private computeNewUnlocks(run: RunState): string[] {
-    const base = this.state.profile?.settings[RUN_BASE_UNLOCKS_KEY];
-    const fromBase = Array.isArray(base)
-      ? run.unlocked.filter((id) => !base.includes(id))
-      : this.sessionUnlocks;
-    return [...new Set(fromBase)].filter((id) => this.content.characters.has(id));
+    return [...new Set(run.newUnlocks)].filter((id) => this.content.characters.has(id));
+  }
+
+  /** 把昨天的配给写进档案 settings，刷新后还在 */
+  private async rememberRations(rations: Rations | null): Promise<void> {
+    await this.queue(async () => {
+      // 排队执行时才读取最新档案，避免用旧快照覆盖前面存档写入的解锁
+      const profile = this.state.profile;
+      if (!profile) return;
+      const settings = { ...profile.settings };
+      if (rations) settings[LAST_RATIONS_KEY] = rations;
+      else delete settings[LAST_RATIONS_KEY];
+      const next = { ...profile, settings };
+      this.set({ profile: next });
+      try {
+        await this.save.updateProfile(next);
+      } catch {
+        // 只影响"沿用昨天的配给"，忽略
+      }
+    });
   }
 
   private queue<R>(fn: () => Promise<R>): Promise<R> {

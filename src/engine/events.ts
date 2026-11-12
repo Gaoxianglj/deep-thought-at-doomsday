@@ -206,7 +206,7 @@ export function getEventView(env: Env): EventView | null {
         id: c.id,
         text: formatText(env, scope, c.text),
         enabled,
-        hint: enabled ? undefined : c.requiresHint,
+        hint: enabled || !c.requiresHint ? undefined : formatText(env, scope, c.requiresHint),
       };
     }),
     result: pending.result && { choiceId: pending.result.choiceId, text: pending.result.text },

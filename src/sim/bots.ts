@@ -6,6 +6,7 @@ import {
   type Action,
   type Content,
   type Effect,
+  type Condition,
   type Env,
   type ExpeditionPlan,
   type ItemDef,
@@ -206,9 +207,11 @@ export const randomBot: Bot = {
 /** 每个配给标签库存可支撑的人天数低于此值时考虑外出 */
 const LOW_SUPPLY_DAYS = 3;
 /** 开局留给工具的点数比例 */
-const TOOL_RESERVE = 0.15;
+const TOOL_RESERVE = 0.55;
 /** 队员花费不超过总点数的这个比例 */
 const PARTY_BUDGET = 0.4;
+/** 物资充足时，外出者的整体状态须不低于此值（0-1） */
+const EXPLORE_MIN_WELLBEING = 0.5;
 
 function itemValuePerCost(content: Content, item: ItemDef, tag: string): number {
   const ts = tagStat(content, tag);
@@ -263,10 +266,143 @@ function supplyLow(env: Env): boolean {
   return false;
 }
 
+/** bot 的内部记忆：每次 setup（以及种子变化）时重置，保证同种子可复现 */
+const memory: { seed: string; visits: Record<string, number> } = { seed: '', visits: {} };
+
+function syncMemory(seed: string): void {
+  if (memory.seed !== seed) {
+    memory.seed = seed;
+    memory.visits = {};
+  }
+}
+
+/** 递归收集条件里出现的 hasItem / carrying 物品 id */
+function itemRefsIn(cond: Condition | undefined, out: Set<string>): void {
+  if (!cond) return;
+  if ('carrying' in cond) out.add(cond.carrying);
+  else if ('hasItem' in cond) out.add(cond.hasItem);
+  else if ('all' in cond) for (const c of cond.all) itemRefsIn(c, out);
+  else if ('any' in cond) for (const c of cond.any) itemRefsIn(c, out);
+  else if ('not' in cond) itemRefsIn(cond.not, out);
+}
+
+/** 事件触发条件 / 地点特殊事件条件所依赖的物品（买了才可能解锁相应内容） */
+function enablerItems(content: Content): Set<string> {
+  const out = new Set<string>();
+  for (const e of content.db.events) itemRefsIn(e.when, out);
+  for (const l of content.db.locations) for (const sp of l.specials ?? []) itemRefsIn(sp.when, out);
+  return out;
+}
+
+/** 递归收集条件里出现的 carrying 物品 id */
+function carryingIn(cond: Condition | undefined, out: Set<string>): void {
+  if (!cond) return;
+  if ('carrying' in cond) out.add(cond.carrying);
+  else if ('all' in cond) for (const c of cond.all) carryingIn(c, out);
+  else if ('any' in cond) for (const c of cond.any) carryingIn(c, out);
+  else if ('not' in cond) carryingIn(cond.not, out);
+}
+
+/** 目的地的 specials 需要携带的、且库存里有的物品（受携带格数限制，非配给物品） */
+function carryFor(env: Env, locationId: string): string[] {
+  const { content, run } = env;
+  const loc = content.locations.get(locationId);
+  const slots = content.maps.get(run.mapId)?.expedition.carrySlots ?? 0;
+  const wanted = new Set<string>();
+  for (const sp of loc?.specials ?? []) carryingIn(sp.when, wanted);
+  const rationTags = content.config.rationTags;
+  const carry: string[] = [];
+  for (const id of wanted) {
+    const item = content.items.get(id);
+    if (!item || item.tags.some((t) => rationTags.includes(t))) continue;
+    if ((run.inventory[id] ?? 0) >= 1 && carry.length < slots) carry.push(id);
+  }
+  return carry;
+}
+
+/** 某地点战利品里"配给类物品"的期望价值（用于物资告急时选目的地） */
+function rationLootValue(content: Content, locationId: string): number {
+  const loc = content.locations.get(locationId);
+  if (!loc) return 0;
+  const rationTags = content.config.rationTags;
+  const total = loc.loot.reduce((a, l) => a + l.weight, 0) || 1;
+  let value = 0;
+  for (const l of loc.loot) {
+    const item = content.items.get(l.item);
+    if (!item?.tags.some((t) => rationTags.includes(t))) continue;
+    value += (l.weight / total) * ((l.min ?? 1) + (l.max ?? l.min ?? 1)) * 0.5;
+  }
+  return value * loc.lootRolls;
+}
+
+// ---------- 事件选项打分 ----------
+
+function scoreEffects(env: Env, effects: Effect[] | undefined): number {
+  const { content } = env;
+  let score = 0;
+  for (const e of effects ?? []) {
+    if ('stat' in e) {
+      const def = content.stats.get(e.stat);
+      const range = def ? Math.max(1, def.max - def.min) : 100;
+      const mul = typeof e.of === 'string' && e.of === 'all' ? 2 : 1;
+      if (e.add !== undefined) score += (e.add / range) * 20 * mul;
+    } else if ('addStatus' in e) score -= 4 * (e.chance ?? 1);
+    else if ('removeStatus' in e) score += 4;
+    else if ('item' in e) {
+      const isPart = content.items.get(e.item)?.tags.includes('part');
+      score += e.add > 0 ? (isPart ? 6 : 1.5) * e.add : 1 * e.add;
+    } else if ('loseRandomItem' in e) score -= 2 * (e.loseRandomItem.count ?? 1);
+    else if ('setFlag' in e) score += e.value ? 6 : 0;
+    else if ('joinParty' in e) score += 10;
+    else if ('unlock' in e) score += 8;
+    else if ('leaveParty' in e) score -= e.reason === 'dead' ? 20 : 12;
+    else if ('queueEvent' in e) score += 1;
+    else if ('ending' in e) score += content.endings.get(e.ending)?.kind === 'death' ? -30 : 30;
+    else if ('if' in e) {
+      score += (scoreEffects(env, e.then) + scoreEffects(env, e.else)) / 2;
+    } else if ('random' in e) {
+      const total = e.random.reduce((a, r) => a + (r.weight ?? 1), 0) || 1;
+      for (const r of e.random) score += ((r.weight ?? 1) / total) * scoreEffects(env, r.effects);
+    }
+  }
+  return score;
+}
+
+/** 选项的期望得分：按 outcome 权重取平均，忽略 when */
+function scoreChoice(env: Env, eventId: string, choiceId: string): number {
+  const choice = env.content.events.get(eventId)?.choices.find((c) => c.id === choiceId);
+  if (!choice || !choice.outcomes.length) return 0;
+  const total = choice.outcomes.reduce((a, o) => a + (o.weight ?? 1), 0) || 1;
+  let score = 0;
+  for (const o of choice.outcomes) {
+    let s = scoreEffects(env, o.effects);
+    if (o.next) s += 0.5;
+    score += ((o.weight ?? 1) / total) * s;
+  }
+  return score;
+}
+
+function bestChoice(env: Env, enabled: string[]): string | undefined {
+  const eventId = env.run.pendingEvent?.eventId;
+  if (!eventId) return enabled[0];
+  let best: string | undefined;
+  let bestScore = -Infinity;
+  for (const id of enabled) {
+    const s = scoreChoice(env, eventId, id);
+    if (s > bestScore + 1e-9) {
+      best = id;
+      bestScore = s;
+    }
+  }
+  return best;
+}
+
 export const sensibleBot: Bot = {
   name: 'sensible',
 
   setup(content, mapId, difficultyId, unlocked, rng) {
+    memory.seed = '';
+    memory.visits = {};
     const map = content.maps.get(mapId);
     const diff = content.difficulties.get(difficultyId);
     if (!map || !diff) return { party: [], items: {} };
@@ -309,15 +445,14 @@ export const sensibleBot: Bot = {
     const rationTags = content.config.rationTags;
     const isRation = (i: ItemDef) => i.tags.some((t) => rationTags.includes(t));
 
-    // 工具：先留预算，每种买 1 个（便宜的、能用的优先）
-    let toolBudget = Math.floor(budget * TOOL_RESERVE);
+    // 工具：先留预算，每种买 1 个（按 cost 从低到高），其余点数买食物和水
+    const enablers = enablerItems(content);
+    let toolBudget = Math.floor(points * TOOL_RESERVE);
     const tools = content.db.items
       .filter((i) => allowed(i) && !isRation(i))
       .sort(
         (a, b) =>
-          Number(!!b.manualUse) - Number(!!a.manualUse) ||
-          Number(!!b.rules?.length) - Number(!!a.rules?.length) ||
-          (a.cost ?? 0) - (b.cost ?? 0),
+          Number(enablers.has(b.id)) - Number(enablers.has(a.id)) || (a.cost ?? 0) - (b.cost ?? 0),
       );
     for (const t of tools) {
       if ((t.cost ?? 0) <= toolBudget && canBuy(t)) {
@@ -349,7 +484,8 @@ export const sensibleBot: Bot = {
   },
 
   act(env) {
-    const ev = eventAct(env, (enabled) => enabled[0]);
+    syncMemory(env.run.seed);
+    const ev = eventAct(env, (enabled) => bestChoice(env, enabled));
     if (ev) return ev;
     const { run, content } = env;
     const chars = shelterIds(run);
@@ -379,15 +515,32 @@ export const sensibleBot: Bot = {
       }
     }
 
-    // 3. 补给不足且没人外出：派状态最好的人去最安全的合法地点
-    if (!run.expedition && !run.plan.expedition && chars.length && supplyLow(env)) {
+    // 3. 外出：补给不足时去能带回配给的地方；否则（有健康的人时）轮流探索各地点
+    if (!run.expedition && !run.plan.expedition && chars.length) {
+      const low = supplyLow(env);
       const ranked = [...chars].sort((a, b) => wellbeing(env, b) - wellbeing(env, a));
       for (const charId of ranked) {
-        const locs = legalLocations(env, charId).sort(
-          (a, b) => a.danger - b.danger || a.distance - b.distance,
-        );
-        const plan = locs[0] && buildPlan(env, charId, locs[0].id);
-        if (plan) return { type: 'planExpedition', ...plan };
+        if (!low && (chars.length < 2 || wellbeing(env, charId) < EXPLORE_MIN_WELLBEING)) continue;
+        const locs = legalLocations(env, charId);
+        if (!locs.length) continue;
+        const visits = (id: string) => memory.visits[id] ?? 0;
+        const pickLoc = low
+          ? locs.sort(
+              (a, b) =>
+                rationLootValue(content, b.id) / (1 + b.danger * 4) -
+                  rationLootValue(content, a.id) / (1 + a.danger * 4) ||
+                visits(a.id) - visits(b.id),
+            )[0]
+          : locs.sort(
+              (a, b) =>
+                visits(a.id) - visits(b.id) || a.danger - b.danger || a.distance - b.distance,
+            )[0];
+        const plan = buildPlan(env, charId, pickLoc.id);
+        if (!plan) continue;
+        plan.carry = carryFor(env, pickLoc.id);
+        if (validateExpeditionPlan(env, plan)) continue;
+        memory.visits[pickLoc.id] = visits(pickLoc.id) + 1;
+        return { type: 'planExpedition', ...plan };
       }
     }
     return { type: 'endDay' };
