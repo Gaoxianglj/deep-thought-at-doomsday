@@ -52,5 +52,7 @@ export default defineConfig({
   ],
   test: {
     include: ['tests/**/*.test.ts'],
+    // 批量模拟类测试在 CI 的慢机器上要十几秒
+    testTimeout: 60_000,
   },
 });
