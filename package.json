@@ -10,12 +10,15 @@
     "dev:host": "vite --host",
     "test": "vitest run",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "validate": "tsx scripts/validate-content.ts",
+    "sim": "tsx scripts/simulate.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
+    "fake-indexeddb": "^6.2.8",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "tsx": "^4.23.15",
