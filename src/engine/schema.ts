@@ -398,7 +398,7 @@ export const ConfigSchema = z.strictObject({
 /**
  * 引擎会用到的文案键及可用变量：
  * death {self} | statusEnter/statusExit {self} {status} | rationMissing {self} {item}
- * expeditionDepart/expeditionReturn/expeditionInjured/expeditionLost {self} {location} {loot}
+ * expeditionDepart/expeditionReturn/expeditionInjured/expeditionLost {self} {location} {loot} {lootCount}
  * weatherChange {weather}
  */
 export const ENGINE_TEXT_KEYS = [

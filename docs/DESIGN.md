@@ -278,7 +278,7 @@ interface DiaryDef {
 1. `plan` 阶段选择：外出者（在庇护所、活着、没有禁止外出的状态）、目的地（满足 `requires`）、携带道具（最多 `map.expedition.carrySlots` 件，暂时离开库存）。
 2. 入夜出发，触发 `expeditionDepart`；外出期间该角色不吃配给，属性照常衰减。
 3. `耗时 = distance + 修正(expedition.duration)` 天后的清晨结算，触发 `expeditionReturn`：
-   - **安危**：`风险 = clamp(danger × 修正(expedition.danger) × 距离系数, 0, 0.95)`。掷骰得到三档之一：平安 / 受伤返回（施加地点指定的状态、扣属性）/ 未能返回（`leaveParty`，携带道具一并丢失）。受伤与失踪的比例由地点数据的 `failSplit` 决定。
+   - **安危**：`风险 = clamp(修正(expedition.danger, 基础值 danger), 0, 0.95)`（距离只体现在耗时上，危险度完全由地点数据决定）。掷骰得到三档之一：平安 / 受伤返回（施加地点指定的状态、扣属性）/ 未能返回（`leaveParty`，携带道具一并丢失）。受伤与失踪的比例由地点数据的 `failSplit` 决定。
    - **战利品**：平安或受伤时，从 `loot` 表按权重抽 `lootRolls + 修正` 次（权重受 `expedition.lootWeight.<tag>` 修正），受伤时次数减半。
    - **特殊事件**：逐条检查 `specials`（条件通常是 `carrying` + `at`），命中则把对应事件以外出者为主角排入当天队列。
    - 携带道具归还库存。
