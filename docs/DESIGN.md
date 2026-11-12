@@ -290,6 +290,8 @@ interface DiaryDef {
 
 ## 7. 运行时状态与存档
 
+> 下面的结构是设计时的示意。**字段的精确定义以 `src/engine/schema.ts` 的 `RunStateSchema` 和 `src/save/types.ts` 为准**（例如 `rng` 实际是一个数字，事件历史字段叫 `history`，另有 `newUnlocks`、`eventRolled`）。
+
 ```ts
 interface RunState {
   v: number; // 存档版本

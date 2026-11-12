@@ -388,6 +388,8 @@ export type EndingDef = z.infer<typeof EndingSchema>;
 export const ConfigSchema = z.strictObject({
   /** 每人每天的配给槽，每个槽是一个物品标签（如 food、water） */
   rationTags: z.array(z.string()),
+  /** 物品标签的显示名（配给槽标题、库存分组等），如 { food: '食物' } */
+  tagNames: z.record(z.string(), z.string()).optional(),
   /** 日志保留天数 */
   logKeepDays: z.number().int().min(1),
   /** 全员死亡/离开且没有结局条件命中时使用的结局 id */
@@ -399,6 +401,7 @@ export const ConfigSchema = z.strictObject({
  * 引擎会用到的文案键及可用变量：
  * death {self} | statusEnter/statusExit {self} {status} | rationMissing {self} {item}
  * expeditionDepart/expeditionReturn/expeditionInjured/expeditionLost {self} {location} {loot} {lootCount}
+ * expeditionCancelled {self} {location}（入夜时外出计划已不合法，例如携带物被吃掉）
  * weatherChange {weather}
  */
 export const ENGINE_TEXT_KEYS = [
@@ -410,6 +413,7 @@ export const ENGINE_TEXT_KEYS = [
   'expeditionReturn',
   'expeditionInjured',
   'expeditionLost',
+  'expeditionCancelled',
   'weatherChange',
 ] as const;
 export type EngineTextKey = (typeof ENGINE_TEXT_KEYS)[number];
@@ -498,6 +502,8 @@ export const RunStateSchema = z.object({
   counters: z.record(z.string(), z.number()),
   /** 开局时已解锁 + 本局新解锁的角色 id；存档层负责并入档案 */
   unlocked: z.array(z.string()),
+  /** 本局新解锁的角色 id（unlocked 的子集），供结局页展示 */
+  newUnlocks: z.array(z.string()),
   /** 预留给未来引擎模块 */
   ext: z.record(z.string(), z.unknown()),
 });

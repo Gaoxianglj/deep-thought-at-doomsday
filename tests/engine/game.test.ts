@@ -150,7 +150,7 @@ describe('按天循环', () => {
   });
 });
 
-describe('外出（桩）', () => {
+describe('外出', () => {
   it('校验、出发、按期返回并归还携带物', () => {
     const env = makeEnv({ items: { lock: 1 } });
     expect(

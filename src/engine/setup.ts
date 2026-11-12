@@ -84,6 +84,7 @@ export function newRun(content: Content, o: NewRunOptions): RunState {
     ending: null,
     counters: {},
     unlocked: [...new Set(o.unlocked)],
+    newUnlocks: [],
     ext: {},
   };
   for (const id of o.party) run.characters[id] = createCharState(content, id)!;

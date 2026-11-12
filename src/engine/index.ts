@@ -7,4 +7,5 @@ export { validateExpeditionPlan } from './expedition';
 export { evalCondition } from './conditions';
 export { getModifier } from './rules';
 export { aliveIds, shelterIds, itemCount, formatText, type Env, type Scope } from './context';
+export { seedToState, nextFloat, randInt, rollChance, pickWeighted } from './rng';
 export { MORNING_STEPS, NIGHT_STEPS } from './day';

@@ -100,6 +100,7 @@ function applyOne(env: Env, scope: Scope, e: Effect): void {
   if ('unlock' in e) {
     if (content.characters.has(e.unlock) && !run.unlocked.includes(e.unlock)) {
       run.unlocked.push(e.unlock);
+      run.newUnlocks.push(e.unlock);
     }
     return;
   }

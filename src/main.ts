@@ -1,11 +1,16 @@
 import './style.css';
+import { contentDB } from './data';
+import { buildContent } from './engine';
+import { createSaveService, installAutosave } from './save';
+import { mount } from './ui/app';
+import { Store } from './ui/store';
 
-const app = document.querySelector<HTMLDivElement>('#app');
-if (app) {
-  app.innerHTML = `
-    <main class="placeholder">
-      <h1>末日时在深度思考中</h1>
-      <p>开发中</p>
-    </main>
-  `;
+const container = document.querySelector<HTMLDivElement>('#app');
+if (container) {
+  const content = buildContent(contentDB);
+  const save = createSaveService(content);
+  const store = new Store(content, save);
+  mount(container, store);
+  installAutosave(() => store.getSnapshot(), save);
+  void store.boot();
 }
