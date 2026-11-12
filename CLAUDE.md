@@ -46,7 +46,7 @@ sim → engine        validation → engine
 | `scripts/`                   | CLI 入口：`validate-content.ts`、`simulate.ts`                                                                |
 | `src/pwa.ts` `src/pwa.css`   | Service Worker 注册与"有新版本"横幅                                                                           |
 | `tests/`                     | `engine/` `save/` `sim/` `ui/` `validation/` 与夹具 `fixtures/`（见第 7 节）                                  |
-| `public/art/`                | 美术：`<类别>/<id>/<状态>.png`（见 5.10）                                                                     |
+| `public/art/`                | 美术：`<类别>/<id>/<状态>.webp`（见 5.10）                                                                    |
 | `docs/`                      | DESIGN.md、ENGINE_GUIDE.md、SETUP_REPORT.md                                                                   |
 
 ## 3. 铁律
@@ -226,7 +226,7 @@ sim → engine        validation → engine
 1. 在 `src/data/characters.ts` 的数组里加一项；特性写在 `traits[].rules`（规则语义见 4.4）。
 2. 默认可选：`unlockedByDefault: true`。要靠剧情解锁：不写它，并在某个事件的结果里写 `{ joinParty }` + `{ unlock }`（`unlock` 立即写入档案，本局失败也保留）。
 3. 配套解锁事件放 `src/data/events/` 下（新文件要在 `events/index.ts` 汇总）；加入后的欢迎事件用 `weight: 0` + `roles: { w: { is: '角色id' } }`，由 `next` 接续。
-4. 美术放 `public/art/characters/<id>/normal.png`（以及各 `artState` 对应的 `<状态>.png`），没有也能玩（占位图）。
+4. 美术放 `public/art/characters/<id>/normal.webp`（以及各 `artState` 对应的 `<状态>.webp`），没有也能玩（占位图）。
 5. 想让日记有该角色的专属句子：见 5.6 的 `is`。
 
 ```ts
@@ -439,7 +439,7 @@ sim → engine        validation → engine
 ### 5.10 新增 / 替换属性、美术与文案
 
 - **新属性（纯数据）**：`src/data/stats.ts` 加 `{ id, name, min, max, initial, dailyDelta, deathAtZero?, deathText? }`。引擎自动给每个角色初始化、每日衰减、可被 `stat.<id>.dailyDelta` 修正；UI 的角色卡是否展示它去看 `src/ui/components/character-card.ts` / `screens/status.ts`（读现状，不要假设）。旧存档缺该属性时 `sanitize` 补初始值。
-- **美术**：路径 `public/art/<类别>/<id>/<状态>.png`，类别 `characters | items | locations | events | ui`。加载回退链：`<状态>.png` → `normal.png` → 程序生成的占位图（id 哈希色块 + 名称前 2 字）。角色的状态名取其身上有 `artState` 且 `priority` 最大的状态，否则 `normal`（`getArtState`）。替换 = 覆盖同名文件。美术不进预缓存，运行时 StaleWhileRevalidate 缓存。
+- **美术**：路径 `public/art/<类别>/<id>/<状态>.webp`，类别 `characters | items | locations | events | ui`。加载回退链：`<状态>.webp` → `normal.webp` → 程序生成的占位图（id 哈希色块 + 名称前 2 字）。角色的状态名取其身上有 `artState` 且 `priority` 最大的状态，否则 `normal`（`getArtState`）。替换 = 覆盖同名文件。美术不进预缓存，运行时 StaleWhileRevalidate 缓存。
 - **界面文案**：`src/data/ui-text.ts`（`uiText`，占位符 `{name}` 由 UI 的 `fmt()` 填）；引擎错误码 → 中文说明在 `uiText.errors`，新增错误码必须在这里加一行，否则 UI 显示"操作无效（code）"。
 - **引擎自动日志文案**：`src/data/config.ts` 的 `texts`（键见 4.5）。缺省的键不写日志（校验给 warning）。
 

@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const BASE = '/deep-thought-at-doomsday/';
-const THEME = '#15181c';
+const THEME = '#3b2a1e';
 
 export default defineConfig({
   base: BASE,
@@ -20,7 +20,7 @@ export default defineConfig({
         start_url: './',
         scope: './',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'landscape',
         categories: ['games'],
         theme_color: THEME,
         background_color: THEME,

@@ -1,5 +1,12 @@
-import './style.css';
-import './polish.css';
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/controls.css';
+import './styles/stage.css';
+import './styles/hud.css';
+import './styles/panels.css';
+import './styles/event.css';
+import './styles/menus.css';
+import './styles/motion.css';
 import { contentDB } from './data';
 import { buildContent } from './engine';
 import { createSaveService, installAutosave } from './save';

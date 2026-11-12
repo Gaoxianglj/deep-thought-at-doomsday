@@ -1,12 +1,19 @@
-/** 事件界面（phase === 'event'）：标题、插图、正文、选项；选择后显示结果与"继续"。 */
+/**
+ * 事件画面（phase === 'event'）：场景在背后压暗模糊，中间一张"信纸"卡片。
+ * 左栏事件插图，右栏标题、正文、选项；选择后右栏换成结果 + "继续"。相关角色以小立绘站在卡片旁。
+ */
 import { getEventView } from '../../engine';
 import { artImg } from '../art';
+import { charName, portrait } from '../components/widgets';
 import { button, h } from '../dom';
+import { buildStage } from '../scene';
 import type { Store } from '../store';
 import { fmt, T } from '../text';
 
 /** 防止连点：一次只处理一个动作 */
 let busy = false;
+/** 记录上一次渲染的事件，换事件/出结果时卡片重新弹出 */
+let lastKey = '';
 
 async function act(fn: () => Promise<unknown>): Promise<void> {
   if (busy) return;
@@ -16,26 +23,31 @@ async function act(fn: () => Promise<unknown>): Promise<void> {
   } finally {
     busy = false;
   }
-  window.scrollTo({ top: 0 });
 }
 
 export function render(root: HTMLElement, store: Store): void {
   const run = store.get().run;
   if (!run) return;
+  const { content } = store;
   // 克隆：choices 的 requires 求值可能动用随机数，不能改动 store 中的对局
-  const view = getEventView({ run: structuredClone(run), content: store.content });
+  const view = getEventView({ run: structuredClone(run), content });
+  const cont = (): void => void act(() => store.dispatch({ type: 'continueEvent' }));
 
-  const header = h(
-    'header',
-    { class: 'topbar' },
-    h(
-      'div',
-      { class: 'topbar__info' },
-      h('span', { class: 'topbar__day' }, fmt(T.run.day, { day: run.day })),
-    ),
+  const key = `${run.seed}:${run.day}:${view?.eventId ?? ''}:${view?.result ? 1 : 0}`;
+  const animate = key !== lastKey;
+  lastKey = key;
+
+  const stage = buildStage(run, content, { interactive: false, class: 'stage--event' }, {}, () =>
+    store.touch(),
+  );
+  const topbar = h(
+    'div',
+    { class: 'event-top' },
+    h('span', { class: 'event-top__day' }, fmt(T.run.day, { day: run.day })),
     button(T.run.menu, () => store.go('home'), {
-      class: 'btn btn--ghost btn--small',
+      class: 'hud-btn',
       label: T.run.toHome,
+      fkey: 'event-menu',
     }),
   );
 
@@ -45,67 +57,107 @@ export function render(root: HTMLElement, store: Store): void {
       h(
         'div',
         { class: 'screen screen--event' },
-        header,
-        h('p', { class: 'empty' }, T.event.missing),
-        button(T.event.continue, () => void act(() => store.dispatch({ type: 'continueEvent' })), {
-          class: 'btn btn--primary btn--block',
-        }),
+        stage,
+        topbar,
+        h(
+          'div',
+          { class: 'letter-wrap' },
+          h(
+            'article',
+            { class: 'letter letter--narrow' },
+            h('p', { class: 'letter__text' }, T.event.missing),
+            button(T.event.continue, cont, { class: 'btn btn--primary', fkey: 'event-continue' }),
+          ),
+        ),
       ),
     );
     return;
   }
 
-  const body = view.result
+  const roles = [...new Set(Object.values(view.roles))].filter((id) => run.characters[id]);
+
+  const side = view.result
     ? h(
         'div',
-        { class: 'event__result', attrs: { role: 'status' } },
-        view.result.text && h('p', { class: 'event__result-text' }, view.result.text),
-        button(T.event.continue, () => void act(() => store.dispatch({ type: 'continueEvent' })), {
-          class: 'btn btn--primary btn--block btn--large',
+        { class: 'letter__result', attrs: { role: 'status' } },
+        h('p', { class: 'letter__kicker' }, T.event.result),
+        view.result.text &&
+          h(
+            'div',
+            { class: 'letter__text letter__text--result' },
+            view.result.text.split(/\n+/).map((p) => h('p', null, p)),
+          ),
+        button(T.event.continue, cont, {
+          class: 'btn btn--primary btn--wide',
           fkey: 'event-continue',
         }),
       )
     : h(
         'div',
-        { class: 'event__choices' },
+        { class: 'letter__choices' },
         view.choices.map((c) =>
           h(
             'div',
-            { class: ['event__choice', !c.enabled && 'event__choice--locked'] },
+            { class: ['choice', !c.enabled && 'choice--locked'] },
             button(
               c.text,
               () => void act(() => store.dispatch({ type: 'chooseEventOption', choiceId: c.id })),
-              {
-                class: 'btn btn--block btn--choice',
-                disabled: !c.enabled,
-                fkey: `choice-${c.id}`,
-              },
+              { class: 'btn btn--choice', disabled: !c.enabled, fkey: `choice-${c.id}` },
             ),
-            !c.enabled && h('p', { class: 'event__hint' }, c.hint ?? T.event.locked),
+            !c.enabled && h('p', { class: 'choice__hint' }, c.hint ?? T.event.locked),
           ),
         ),
       );
+
+  const cast =
+    roles.length > 0 &&
+    h(
+      'div',
+      { class: 'letter-cast', attrs: { 'aria-label': T.event.involved } },
+      roles.map((id) =>
+        h(
+          'figure',
+          { class: 'cast' },
+          h('span', { class: 'cast__art' }, portrait(run, content, id)),
+          h('figcaption', { class: 'cast__name' }, charName(content, id)),
+        ),
+      ),
+    );
 
   root.append(
     h(
       'div',
       { class: 'screen screen--event' },
-      header,
+      stage,
+      topbar,
       h(
-        'article',
-        { class: 'event' },
-        h('h1', { class: 'event__title' }, view.title),
+        'div',
+        { class: 'letter-wrap' },
         h(
-          'div',
-          { class: 'event__art' },
-          artImg('events', view.art ?? view.eventId, 'normal', view.title),
+          'article',
+          {
+            class: ['letter', animate && 'is-entering'],
+            attrs: { 'aria-labelledby': 'event-title' },
+          },
+          h(
+            'div',
+            { class: 'letter__art' },
+            artImg('events', view.art ?? view.eventId, 'normal', view.title),
+            cast,
+          ),
+          h(
+            'div',
+            { class: 'letter__body', attrs: { 'data-skey': 'event-body' } },
+            h('h1', { class: 'letter__title', attrs: { id: 'event-title' } }, view.title),
+            !view.result &&
+              h(
+                'div',
+                { class: 'letter__text' },
+                view.text.split(/\n+/).map((p) => h('p', null, p)),
+              ),
+            side,
+          ),
         ),
-        h(
-          'div',
-          { class: 'event__text' },
-          view.text.split(/\n+/).map((p) => h('p', null, p)),
-        ),
-        body,
       ),
     ),
   );

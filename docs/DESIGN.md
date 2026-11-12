@@ -365,7 +365,7 @@ src/data/
 
 - 每个文件导出一个定义数组，用 `satisfies` 获得类型检查；互相只用字符串 id 引用。id 用小写蛇形，全局在各自类别内唯一。
 - 新增内容 = 在对应文件加一条数据（新事件文件需在 `events/index.ts` 加一行）。
-- 美术：`public/art/<characters|items|locations|events|ui>/<id>/<状态>.png`。角色的状态名取其当前优先级最高、且带 `artState` 的状态，否则 `normal`。加载失败依次回退 `normal.png` → 程序生成的占位图（由 id 哈希得到的色块 + 名称）。
+- 美术：`public/art/<characters|items|locations|events|ui>/<id>/<状态>.webp`。角色的状态名取其当前优先级最高、且带 `artState` 的状态，否则 `normal`。加载失败依次回退 `normal.webp` → 程序生成的占位图（由 id 哈希得到的色块 + 名称）。
 
 ## 9. 模块划分
 

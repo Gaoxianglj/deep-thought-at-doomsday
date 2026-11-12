@@ -1,0 +1,289 @@
+/* 基础：重置、横屏根、屏幕容器、文字、纸张质感、提示、换日幕布。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--night);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ls-root {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--root-w, 100vw);
+  height: var(--root-h, 100vh);
+  overflow: hidden;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  background: var(--night);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.ls-root.is-rotated {
+  top: 100%;
+  transform-origin: 0 0;
+  transform: rotate(-90deg);
+}
+
+.app__main,
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.app__layer {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.app__layer > * {
+  pointer-events: auto;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+:focus-visible {
+  outline: calc(var(--u) * 3) solid var(--mist);
+  outline-offset: calc(var(--u) * 2);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 纸张：奶油底、暖棕描边、细小纸纹、内阴影、柔和投影 */
+.paper {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(rgb(122 91 68 / 0.07) 0.6px, transparent 1px),
+    radial-gradient(circle at 15% 0%, rgb(255 255 255 / 0.55), transparent 55%),
+    linear-gradient(180deg, transparent 70%, rgb(201 138 75 / 0.1));
+  background-size:
+    calc(var(--u) * 5) calc(var(--u) * 5),
+    100% 100%,
+    100% 100%;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow:
+    inset 0 0 0 calc(var(--u) * 3) rgb(255 255 255 / 0.32),
+    inset 0 0 calc(var(--u) * 26) rgb(201 138 75 / 0.2),
+    var(--shadow-soft);
+}
+
+.empty {
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  padding: var(--s1) 0;
+}
+
+.empty--ok {
+  color: #5d7d43;
+}
+
+.hint {
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+
+.warn {
+  padding: var(--s2) var(--s3);
+  border: var(--line-thin) solid var(--brick);
+  border-radius: var(--r-sm);
+  background: rgb(242 192 182 / 0.55);
+  color: var(--brick-ink);
+  font-size: var(--fs-sm);
+}
+
+.warn ul {
+  padding-left: 1.2em;
+  list-style: disc;
+}
+
+.ok-note {
+  color: #5d7d43;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+/* 小标题：带一条手绘感的虚线 */
+.sheet-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: var(--s3) 0 var(--s2);
+  font: 800 var(--fs-sm) / 1.2 var(--font-title);
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+}
+
+.sheet-title:first-child {
+  margin-top: 0;
+}
+
+.sheet-title::after {
+  content: '';
+  flex: 1;
+  border-bottom: var(--line-thin) dashed var(--ink-faint);
+}
+
+.sheet-title__meta {
+  order: 2;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0;
+}
+
+/* ---------- 提示消息 ---------- */
+.toasts {
+  position: absolute;
+  top: var(--pad-t);
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: min(calc(var(--u) * 430), 70%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s1) var(--s1) var(--s4);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-pop), var(--shadow-soft);
+  font-size: var(--fs-sm);
+  pointer-events: auto;
+  animation: toast-in 220ms ease-out both;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--u) * 6);
+  background: var(--mist);
+}
+
+.toast--success::before {
+  background: var(--sage);
+}
+
+.toast--error::before {
+  background: var(--brick);
+}
+
+.toast--error {
+  background: #fbe6df;
+}
+
+.toast__text {
+  flex: 1;
+}
+
+/* ---------- 换日幕布 ---------- */
+.curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  background: radial-gradient(circle at 50% 45%, #4a3324, #1e130c 75%);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.curtain[hidden] {
+  display: none;
+}
+
+.curtain.is-playing {
+  animation: curtain 1100ms ease-in-out both;
+}
+
+.curtain__day {
+  font: 900 calc(var(--u) * 46) / 1 var(--font-title);
+  letter-spacing: 0.12em;
+  color: var(--lamp-hi);
+  text-shadow: 0 calc(var(--u) * 4) 0 rgb(0 0 0 / 0.35);
+  animation: curtain-day 1100ms ease-out both;
+}
+
+.curtain__hint {
+  font-size: var(--fs-sm);
+  color: rgb(247 236 215 / 0.55);
+}

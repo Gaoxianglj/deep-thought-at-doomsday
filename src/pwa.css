@@ -1,20 +1,24 @@
+/* "有新版本"横幅：插在横屏根内，随之旋转；尺寸用设计单位 --u。 */
 .pwa-banner {
-  position: fixed;
-  top: max(8px, env(safe-area-inset-top));
+  position: absolute;
+  top: max(calc(var(--u, 1px) * 8), var(--safe-t, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
+  z-index: 80;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: calc(100vw - 16px);
-  padding: 8px 12px;
-  border: 1px solid #343a42;
-  border-radius: 8px;
-  background: #1e2228;
-  color: #e8e6e1;
-  font-size: 14px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+  gap: calc(var(--u, 1px) * 8);
+  max-width: calc(100% - var(--u, 1px) * 24);
+  padding: calc(var(--u, 1px) * 6) calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 6)
+    calc(var(--u, 1px) * 14);
+  border: calc(var(--u, 1px) * 2) solid #4a3324;
+  border-radius: calc(var(--u, 1px) * 12);
+  background: #f7ecd7;
+  color: #4a3324;
+  font-size: calc(var(--u, 1px) * 14);
+  box-shadow:
+    0 calc(var(--u, 1px) * 3) 0 #4a3324,
+    0 calc(var(--u, 1px) * 8) calc(var(--u, 1px) * 18) rgb(40 24 12 / 0.4);
 }
 
 .pwa-banner__text {
@@ -23,18 +27,20 @@
 
 .pwa-banner__btn {
   flex: none;
-  min-height: 32px;
-  padding: 4px 12px;
-  border: 1px solid #343a42;
-  border-radius: 6px;
-  background: transparent;
+  min-height: calc(var(--u, 1px) * 40);
+  padding: 0 calc(var(--u, 1px) * 14);
+  border: calc(var(--u, 1px) * 2) solid #4a3324;
+  border-radius: calc(var(--u, 1px) * 10);
+  background: #fffaf0;
   color: inherit;
-  font: inherit;
+  font:
+    800 calc(var(--u, 1px) * 14) / 1 ui-rounded,
+    'PingFang SC',
+    system-ui,
+    sans-serif;
   cursor: pointer;
 }
 
 .pwa-banner__btn--primary {
-  border-color: #e0a63a;
-  background: #e0a63a;
-  color: #1a1408;
+  background: #f0a34a;
 }

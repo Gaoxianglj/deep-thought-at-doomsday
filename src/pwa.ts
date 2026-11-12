@@ -1,5 +1,6 @@
 import { registerSW } from 'virtual:pwa-register';
 import './pwa.css';
+import { landscapeRoot } from './ui/landscape';
 
 function showUpdateBanner(onUpdate: () => void): void {
   const banner = document.createElement('div');
@@ -26,7 +27,8 @@ function showUpdateBanner(onUpdate: () => void): void {
   later.addEventListener('click', () => banner.remove());
 
   banner.append(text, update, later);
-  document.body.append(banner);
+  // 插入横屏根，才会跟着旋转
+  (landscapeRoot() ?? document.body).append(banner);
 }
 
 /** 仅生产构建注册 Service Worker；新版本只提示，不自动刷新。 */

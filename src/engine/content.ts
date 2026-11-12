@@ -10,6 +10,7 @@ import type {
   ItemDef,
   LocationDef,
   MapDef,
+  SceneDef,
   StatDef,
   StatusDef,
   WeatherDef,
@@ -29,6 +30,8 @@ export interface Content {
   events: Map<string, EventDef>;
   diary: Map<string, DiaryDef>;
   endings: Map<string, EndingDef>;
+  /** 键是地图 id */
+  sceneByMap: Map<string, SceneDef>;
 }
 
 function index<T extends { id: string }>(list: T[]): Map<string, T> {
@@ -50,5 +53,6 @@ export function buildContent(db: ContentDB): Content {
     events: index(db.events),
     diary: index(db.diary),
     endings: index(db.endings),
+    sceneByMap: new Map((db.scenes ?? []).map((s) => [s.map, s])),
   };
 }

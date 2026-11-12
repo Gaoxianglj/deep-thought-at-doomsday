@@ -1,5 +1,9 @@
-/** 结局页：结局名称/文案、存活天数、本局统计、本局新解锁、返回主页。 */
+/**
+ * 结局页（横屏两栏）：左栏结局图（或占位）+ 结局名与文案；右栏坚持天数、队伍、统计、本局新解锁的伙伴、返回主页。
+ */
 import { artImg } from '../art';
+import { menuScreen } from '../components/shell';
+import { emptyNote, portrait, sectionTitle, whereBadge } from '../components/widgets';
 import { button, h } from '../dom';
 import type { Store } from '../store';
 import { fmt, T } from '../text';
@@ -14,88 +18,112 @@ export function render(root: HTMLElement, store: Store): void {
   const { run } = info;
   const def = run.ending ? content.endings.get(run.ending.id) : undefined;
   const day = run.ending?.day ?? run.day;
+  const name = def?.name ?? T.ending.unknownName;
 
   const counters = Object.entries(run.counters).filter(([, v]) => typeof v === 'number');
   const party = run.party.map((id) => {
     const where = run.characters[id]?.where ?? 'gone';
-    const name = content.characters.get(id)?.name ?? id;
-    const label = where === 'dead' ? T.run.dead : where === 'gone' ? T.run.gone : '';
+    const charName = content.characters.get(id)?.name ?? id;
     return h(
       'li',
-      { class: ['ending__member', `ending__member--${where}`] },
-      h('span', { class: 'ending__portrait' }, artImg('characters', id, 'normal', name)),
-      h('span', { class: 'ending__name' }, name),
-      label && h('span', { class: ['badge', `badge--${where}`] }, label),
+      { class: ['party-chip', `party-chip--${where}`] },
+      h('span', { class: 'avatar' }, portrait(null, content, id)),
+      h('span', { class: 'party-chip__name' }, charName),
+      whereBadge(where) ?? h('span', { class: 'badge badge--alive' }, T.ending.survivors),
     );
   });
 
   root.append(
-    h(
-      'div',
-      { class: ['screen', 'screen--ending', def && `screen--ending-${def.kind}`] },
-      h(
-        'header',
-        { class: 'ending__header' },
-        h('p', { class: 'ending__kicker' }, T.ending.title),
-        h('h1', { class: 'ending__name-title' }, def?.name ?? T.ending.unknownName),
-        h('p', { class: 'ending__days' }, fmt(T.ending.days, { day })),
-      ),
+    menuScreen(
+      store,
+      ['screen--ending', def && `screen--ending-${def.kind}`].filter(Boolean).join(' '),
+      { mapId: run.mapId },
       h(
         'div',
-        { class: 'ending__text' },
-        (def?.text ?? T.ending.unknownText).split(/\n+/).map((p) => h('p', null, p)),
-      ),
-      h(
-        'section',
-        { class: 'section' },
-        h('h2', { class: 'section__title' }, T.ending.party),
-        h('ul', { class: 'ending__party' }, party),
-      ),
-      counters.length > 0 &&
+        { class: 'ending' },
         h(
-          'section',
-          { class: 'section' },
-          h('h2', { class: 'section__title' }, T.ending.stats),
+          'article',
+          { class: 'paper ending-main' },
           h(
-            'dl',
-            { class: 'stats-list' },
-            counters.map(([k, v]) => [
-              h('dt', { class: 'stats-list__key' }, T.counters[k] ?? k),
-              h('dd', { class: 'stats-list__value' }, v),
-            ]),
+            'div',
+            { class: 'ending-main__art' },
+            artImg('endings', run.ending?.id ?? 'unknown', 'normal', name),
+          ),
+          h('p', { class: 'ending-main__kicker' }, T.ending.title),
+          h('h1', { class: 'ending-main__title' }, name),
+          h('p', { class: 'ending-main__days' }, fmt(T.ending.days, { day })),
+          h(
+            'div',
+            { class: 'ending-main__text', attrs: { 'data-skey': 'ending-text' } },
+            (def?.text ?? T.ending.unknownText).split(/\n+/).map((p) => h('p', null, p)),
           ),
         ),
-      h(
-        'section',
-        { class: 'section' },
-        h('h2', { class: 'section__title' }, T.ending.newUnlocks),
-        info.newUnlocks.length
-          ? h(
-              'ul',
-              { class: 'companion-grid' },
-              info.newUnlocks.map((id) => {
-                const name = content.characters.get(id)?.name ?? id;
-                return h(
-                  'li',
-                  { class: 'companion companion--new' },
+        h(
+          'aside',
+          { class: 'paper ending-side' },
+          h(
+            'div',
+            { class: 'ending-side__scroll', attrs: { 'data-skey': 'ending-side' } },
+            sectionTitle(T.ending.party),
+            h('ul', { class: 'party-chips' }, party),
+            info.newUnlocks.length > 0 && [
+              sectionTitle(T.ending.newUnlocks),
+              info.newUnlocks.length
+                ? h(
+                    'div',
+                    { class: 'unlock-row' },
+                    info.newUnlocks.map((id) =>
+                      h(
+                        'figure',
+                        { class: 'unlock' },
+                        h(
+                          'span',
+                          { class: 'unlock__art' },
+                          artImg(
+                            'characters',
+                            id,
+                            'normal',
+                            content.characters.get(id)?.name ?? id,
+                          ),
+                        ),
+                        h(
+                          'figcaption',
+                          { class: 'unlock__name' },
+                          content.characters.get(id)?.name ?? id,
+                        ),
+                      ),
+                    ),
+                  )
+                : emptyNote(T.ending.noNewUnlocks),
+            ],
+            counters.length > 0 && [
+              sectionTitle(T.ending.stats),
+              h(
+                'dl',
+                { class: 'stats-list' },
+                counters.map(([k, v]) =>
                   h(
                     'div',
-                    { class: 'companion__portrait' },
-                    artImg('characters', id, 'normal', name),
+                    { class: 'stats-list__row' },
+                    h('dt', { class: 'stats-list__key' }, T.counters[k] ?? k),
+                    h('dd', { class: 'stats-list__value' }, v),
                   ),
-                  h('span', { class: 'companion__name' }, name),
-                );
-              }),
-            )
-          : h('p', { class: 'empty' }, T.ending.noNewUnlocks),
+                ),
+              ),
+            ],
+            info.newUnlocks.length === 0 && [
+              sectionTitle(T.ending.newUnlocks),
+              emptyNote(T.ending.noNewUnlocks),
+            ],
+          ),
+          !info.saved && h('p', { class: 'hint', attrs: { role: 'status' } }, T.ending.saving),
+          button(T.ending.backHome, () => store.leaveEnding(), {
+            class: 'btn btn--primary btn--stamp btn--block',
+            disabled: !info.saved,
+            fkey: 'ending-home',
+          }),
+        ),
       ),
-      !info.saved &&
-        h('p', { class: 'ending__saving', attrs: { role: 'status' } }, T.ending.saving),
-      button(T.ending.backHome, () => store.leaveEnding(), {
-        class: 'btn btn--primary btn--block btn--large',
-        disabled: !info.saved,
-        fkey: 'ending-home',
-      }),
     ),
   );
 }

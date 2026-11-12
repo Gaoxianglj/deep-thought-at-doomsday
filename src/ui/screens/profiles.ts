@@ -1,5 +1,7 @@
-/** 档案页：列表、新建、进入、删除、导入、导出。 */
+/** 档案页（横屏两栏）：左栏档案列表（进入、导出、删除）；右栏新建与导入。 */
 import type { Profile } from '../../save/types';
+import { menuScreen, titleBar } from '../components/shell';
+import { emptyNote, sectionTitle } from '../components/widgets';
 import { confirmDialog, openDialog } from '../dialog';
 import { button, h, uid } from '../dom';
 import type { Store } from '../store';
@@ -37,7 +39,7 @@ async function exportCode(store: Store, p: Profile): Promise<void> {
       const id = uid('code');
       const ta = h('textarea', {
         class: 'field__input field__input--code',
-        attrs: { id, readonly: true, rows: 6 },
+        attrs: { id, readonly: true, rows: 5 },
       });
       ta.value = code;
       ta.addEventListener('focus', () => ta.select());
@@ -74,14 +76,14 @@ async function exportJson(store: Store, p: Profile): Promise<void> {
 function profileItem(store: Store, p: Profile): HTMLElement {
   return h(
     'li',
-    { class: 'profile-list__item card' },
+    { class: 'profile' },
     h(
       'div',
-      { class: 'profile-list__info' },
-      h('h3', { class: 'profile-list__name' }, p.name),
+      { class: 'profile__info' },
+      h('h3', { class: 'profile__name' }, p.name),
       h(
         'p',
-        { class: 'profile-list__meta' },
+        { class: 'profile__meta' },
         fmt(T.profiles.runs, { n: p.runsPlayed }),
         ' · ',
         fmt(T.profiles.updated, { date: formatDate(p.updatedAt) }),
@@ -89,13 +91,17 @@ function profileItem(store: Store, p: Profile): HTMLElement {
     ),
     h(
       'div',
-      { class: 'profile-list__actions' },
+      { class: 'profile__actions' },
       button(T.profiles.open, () => void store.openProfile(p.id), {
-        class: 'btn btn--primary',
+        class: 'btn btn--primary btn--small',
         fkey: `open-${p.id}`,
       }),
-      button(T.profiles.exportCode, () => void exportCode(store, p), { class: 'btn btn--ghost' }),
-      button(T.profiles.exportJson, () => void exportJson(store, p), { class: 'btn btn--ghost' }),
+      button(T.profiles.exportCode, () => void exportCode(store, p), {
+        class: 'btn btn--ghost btn--small',
+      }),
+      button(T.profiles.exportJson, () => void exportJson(store, p), {
+        class: 'btn btn--ghost btn--small',
+      }),
       button(
         T.profiles.delete,
         async () => {
@@ -106,7 +112,7 @@ function profileItem(store: Store, p: Profile): HTMLElement {
           );
           if (ok) await store.deleteProfile(p.id);
         },
-        { class: 'btn btn--danger-ghost' },
+        { class: 'btn btn--ghost btn--small btn--danger-text' },
       ),
     ),
   );
@@ -123,6 +129,7 @@ function createForm(store: Store): HTMLElement {
       maxlength: NAME_MAX,
       placeholder: T.profiles.namePlaceholder,
       autocomplete: 'off',
+      enterkeyhint: 'done',
       'aria-describedby': errId,
     },
     fkey: 'profile-name',
@@ -133,14 +140,14 @@ function createForm(store: Store): HTMLElement {
   const form = h(
     'form',
     { class: 'form' },
+    h('label', { class: 'field__label', attrs: { for: id } }, T.profiles.nameLabel),
     h(
       'div',
-      { class: 'field' },
-      h('label', { class: 'field__label', attrs: { for: id } }, T.profiles.nameLabel),
+      { class: 'field-row' },
       input,
-      err,
+      h('button', { class: 'btn btn--primary', attrs: { type: 'submit' } }, T.profiles.create),
     ),
-    h('button', { class: 'btn btn--primary', attrs: { type: 'submit' } }, T.profiles.create),
+    err,
   );
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -150,15 +157,11 @@ function createForm(store: Store): HTMLElement {
     else {
       err.textContent = '';
       drafts.name = '';
+      input.blur();
       void store.createProfile(name);
     }
   });
-  return h(
-    'section',
-    { class: 'section' },
-    h('h2', { class: 'section__title' }, T.profiles.createTitle),
-    form,
-  );
+  return h('section', { class: 'form-block' }, sectionTitle(T.profiles.createTitle), form);
 }
 
 function importForm(store: Store): HTMLElement {
@@ -169,7 +172,7 @@ function importForm(store: Store): HTMLElement {
     class: 'field__input field__input--code',
     attrs: {
       id: taId,
-      rows: 4,
+      rows: 3,
       placeholder: T.profiles.importPlaceholder,
       'aria-describedby': errId,
     },
@@ -183,7 +186,7 @@ function importForm(store: Store): HTMLElement {
     drafts.importError,
   );
   const file = h('input', {
-    class: 'field__file',
+    class: 'visually-hidden',
     attrs: { id: fileId, type: 'file', accept: '.json,application/json,text/plain' },
   });
   const doImport = async (text: string): Promise<void> => {
@@ -211,17 +214,17 @@ function importForm(store: Store): HTMLElement {
   const form = h(
     'form',
     { class: 'form' },
+    h('label', { class: 'field__label', attrs: { for: taId } }, T.profiles.importLabel),
+    ta,
     h(
       'div',
-      { class: 'field' },
-      h('label', { class: 'field__label', attrs: { for: taId } }, T.profiles.importLabel),
-      ta,
-    ),
-    h('button', { class: 'btn', attrs: { type: 'submit' } }, T.profiles.importButton),
-    h(
-      'div',
-      { class: 'field' },
-      h('label', { class: 'field__label', attrs: { for: fileId } }, T.profiles.importFileLabel),
+      { class: 'field-row' },
+      h('button', { class: 'btn btn--wood', attrs: { type: 'submit' } }, T.profiles.importButton),
+      h(
+        'label',
+        { class: 'btn btn--ghost file-btn', attrs: { for: fileId } },
+        T.profiles.importFileLabel,
+      ),
       file,
     ),
     err,
@@ -230,34 +233,38 @@ function importForm(store: Store): HTMLElement {
     ev.preventDefault();
     void doImport(ta.value);
   });
-  return h(
-    'section',
-    { class: 'section' },
-    h('h2', { class: 'section__title' }, T.profiles.importTitle),
-    form,
-  );
+  return h('section', { class: 'form-block' }, sectionTitle(T.profiles.importTitle), form);
 }
 
 export function render(root: HTMLElement, store: Store): void {
   const { profiles } = store.get();
   root.append(
-    h(
-      'div',
-      { class: 'screen screen--profiles' },
+    menuScreen(
+      store,
+      'screen--profiles',
+      null,
+      titleBar(h('span', { class: 'titlebar__brand' }, T.appTitle), T.profiles.title),
       h(
-        'header',
-        { class: 'screen__header' },
-        h('h1', { class: 'screen__title' }, T.profiles.title),
+        'div',
+        { class: 'two-col' },
+        h(
+          'section',
+          { class: 'paper col-main', attrs: { 'data-skey': 'profile-list' } },
+          profiles.length
+            ? h(
+                'ul',
+                { class: 'profile-list' },
+                profiles.map((p) => profileItem(store, p)),
+              )
+            : emptyNote(T.profiles.empty),
+        ),
+        h(
+          'section',
+          { class: 'paper col-side', attrs: { 'data-skey': 'profile-forms' } },
+          createForm(store),
+          importForm(store),
+        ),
       ),
-      profiles.length
-        ? h(
-            'ul',
-            { class: 'profile-list' },
-            profiles.map((p) => profileItem(store, p)),
-          )
-        : h('p', { class: 'empty' }, T.profiles.empty),
-      createForm(store),
-      importForm(store),
     ),
   );
 }

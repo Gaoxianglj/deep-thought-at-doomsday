@@ -385,6 +385,44 @@ export const EndingSchema = z.strictObject({
 });
 export type EndingDef = z.infer<typeof EndingSchema>;
 
+// ---------- 场景（仅界面使用：横屏舞台上各元素的摆放） ----------
+/** 舞台坐标一律是百分比：x 相对舞台宽度、y 相对舞台高度，原点在左上角 */
+const Pct = z.number().min(0).max(100);
+const RectSchema = z.strictObject({ x: Pct, y: Pct, w: Pct, h: Pct });
+export const SceneSchema = z.strictObject({
+  id: Id,
+  /** 这个场景属于哪张地图（每张地图一个庇护所场景） */
+  map: Id,
+  /** 背景图：public/art/backgrounds/<background>/normal.webp */
+  background: Id,
+  /**
+   * 角色站位，按队伍加入顺序占用。x/y 是脚底中心的位置，h 是立绘高度占舞台高度的百分比。
+   * 站位数应不少于地图的 partySize.max（含中途加入者再多留一个）。
+   */
+  spots: z.array(z.strictObject({ x: Pct, y: Pct, h: Pct })).min(1),
+  /** 物资堆放区：带该标签的物品按数量在矩形区域内排开，最多画 max 个，超出的只显示数字 */
+  stockAreas: z.array(
+    z.strictObject({
+      tag: z.string(),
+      x: Pct,
+      y: Pct,
+      w: Pct,
+      h: Pct,
+      max: z.number().int().min(1),
+    }),
+  ),
+  /** 单件道具的摆放：物品 id → 底边中心位置与宽度。没列出的道具只出现在背包面板里 */
+  props: z.record(z.string(), z.strictObject({ x: Pct, y: Pct, w: Pct })),
+  /** 可点击的热点区域。art 可选：public/art/ui/<art>/normal.webp，画在该矩形内 */
+  hotspots: z.strictObject({
+    /** 出口：安排外出 */
+    expedition: RectSchema.extend({ art: Id.optional() }),
+    /** 日记本：日志、日记、结束这一天 */
+    journal: RectSchema.extend({ art: Id.optional() }),
+  }),
+});
+export type SceneDef = z.infer<typeof SceneSchema>;
+
 export const ConfigSchema = z.strictObject({
   /** 每人每天的配给槽，每个槽是一个物品标签（如 food、water） */
   rationTags: z.array(z.string()),
@@ -433,6 +471,8 @@ export const ContentDBSchema = z.strictObject({
   events: z.array(EventSchema),
   diary: z.array(DiarySchema),
   endings: z.array(EndingSchema),
+  /** 可选：没有场景的地图，界面退回到无背景的默认布局 */
+  scenes: z.array(SceneSchema).optional(),
 });
 export type ContentDB = z.infer<typeof ContentDBSchema>;
 

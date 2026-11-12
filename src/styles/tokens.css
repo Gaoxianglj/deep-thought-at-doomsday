@@ -1,0 +1,88 @@
+/*
+ * 设计令牌。颜色取自庇护所背景：奶油纸、暖棕墨线、木色、灯光橙；点缀用角色身上的薰衣草紫与雾蓝；危险色是柔和的砖红。
+ * 尺寸一律以 --u（1 个设计单位 = 横屏根高度 / 375）为基准，由 src/ui/landscape.ts 设置。
+ */
+:root {
+  --paper: #f7ecd7;
+  --paper-2: #f1e2c6;
+  --paper-3: #e6d0a8;
+  --paper-hi: #fffaf0;
+  --ink: #4a3324;
+  --ink-soft: #7a5b44;
+  --ink-faint: #a88b70;
+  --wood: #c98a4b;
+  --wood-hi: #dca367;
+  --wood-dark: #9a6232;
+  --lamp: #f0a34a;
+  --lamp-hi: #f7c27a;
+  --lamp-dark: #d9822b;
+  --lamp-tint: #fbe2bb;
+  --lavender: #b9a7d9;
+  --lavender-soft: #e7def3;
+  --mist: #8fb3cf;
+  --mist-soft: #d9e7f1;
+  --sage: #9dbf7e;
+  --sage-soft: #dfead2;
+  --brick: #c4574a;
+  --brick-soft: #f2c0b6;
+  --brick-ink: #7a2e24;
+  --night: #2b1d14;
+  --leather: #8a5a34;
+  --leather-dark: #6b4226;
+
+  --font-title:
+    ui-rounded, 'SF Pro Rounded', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-body:
+    system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-hand: 'Kaiti SC', 'STKaiti', 'KaiTi', 'BiauKai', 'Kaiti TC', cursive;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.ls-root {
+  --u: 1px;
+  --line: calc(var(--u) * 2);
+  --line-thin: calc(var(--u) * 1.5);
+
+  --fs-xs: calc(var(--u) * 12);
+  --fs-sm: calc(var(--u) * 13);
+  --fs-md: calc(var(--u) * 14);
+  --fs-lg: calc(var(--u) * 17);
+  --fs-xl: calc(var(--u) * 21);
+  --fs-xxl: calc(var(--u) * 30);
+
+  --s1: calc(var(--u) * 4);
+  --s2: calc(var(--u) * 6);
+  --s3: calc(var(--u) * 10);
+  --s4: calc(var(--u) * 14);
+  --s5: calc(var(--u) * 20);
+
+  --r-sm: calc(var(--u) * 8);
+  --r-md: calc(var(--u) * 12);
+  --r-lg: calc(var(--u) * 18);
+
+  --tap: calc(var(--u) * 40);
+
+  --shadow-pop: 0 calc(var(--u) * 3) 0 var(--ink);
+  --shadow-soft: 0 calc(var(--u) * 6) calc(var(--u) * 18) rgb(40 24 12 / 0.38);
+
+  /* 安全区（横向持握时左右留边）；旋转后方向互换 */
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --pad-x: calc(var(--u) * 12);
+  --pad-y: calc(var(--u) * 10);
+  --pad-l: max(var(--pad-x), var(--safe-l));
+  --pad-r: max(var(--pad-x), var(--safe-r));
+  --pad-t: max(var(--pad-y), var(--safe-t));
+  --pad-b: max(var(--pad-y), var(--safe-b));
+}
+
+/* 竖屏旋转 -90°：内容的左边在屏幕底部、右边在屏幕顶部、上边在屏幕左侧 */
+.ls-root.is-rotated {
+  --safe-l: env(safe-area-inset-bottom, 0px);
+  --safe-r: env(safe-area-inset-top, 0px);
+  --safe-t: env(safe-area-inset-left, 0px);
+  --safe-b: env(safe-area-inset-right, 0px);
+}

@@ -1,0 +1,616 @@
+/*
+ * 舞台：模糊铺底 + 居中的 16:9 场景框；场景框内的元素按百分比坐标（--x --y --w --h，数值即百分数）定位。
+ * 层次：背景 → 物资堆与道具 → 热点 → 角色 → 头顶标记。
+ */
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--night);
+}
+
+.backdrop {
+  position: absolute;
+  inset: calc(var(--u) * -30);
+  background:
+    linear-gradient(rgb(43 29 20 / 0.35), rgb(43 29 20 / 0.35)),
+    var(--bg, none) center / cover no-repeat,
+    radial-gradient(circle at 50% 30%, #8a6446, #3b2a1e 75%);
+  filter: blur(calc(var(--u) * 14)) brightness(0.6) saturate(1.1);
+}
+
+.backdrop--plain {
+  filter: none;
+  background:
+    radial-gradient(circle at 50% 20%, rgb(240 163 74 / 0.35), transparent 55%),
+    linear-gradient(180deg, #6b4c37, #3b2a1e);
+}
+
+.stage__frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--stage-w, 100%);
+  height: var(--stage-h, 100%);
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
+.stage__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    var(--bg, none) center / 100% 100% no-repeat,
+    radial-gradient(circle at 50% 18%, #d9a874, transparent 55%),
+    linear-gradient(180deg, #b48a68 0%, #a37b5c 62%, #8d6a50 63%, #7d5d46 100%);
+}
+
+/* 场景框边缘与模糊铺底柔和衔接 */
+.stage__frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(43 29 20 / 0.45),
+      transparent 3%,
+      transparent 97%,
+      rgb(43 29 20 / 0.45)
+    ),
+    radial-gradient(ellipse 75% 70% at 50% 45%, transparent 60%, rgb(43 29 20 / 0.28));
+}
+
+.stage__frame--plain .stage__bg {
+  background:
+    radial-gradient(circle at 50% 12%, rgb(255 214 150 / 0.55), transparent 45%),
+    linear-gradient(180deg, #a07a5c 0%, #8e6a4f 62%, #6f5240 63%, #5f4536 100%);
+}
+
+.stage__layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stage__layer > * {
+  pointer-events: auto;
+}
+
+.stage__layer--stock {
+  z-index: 2;
+}
+
+.stage__layer--hot {
+  z-index: 3;
+}
+
+.stage__layer--chars {
+  z-index: 4;
+}
+
+.stage__layer--marks {
+  z-index: 5;
+}
+
+.stage__layer--marks > * {
+  pointer-events: none;
+}
+
+/* 场景里可点的东西：去掉按钮外观 */
+.stock,
+.prop,
+.figure,
+.hotspot {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.is-clickable {
+  cursor: pointer;
+}
+
+/* ---------- 物资堆 ---------- */
+.stock {
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: calc(var(--w) * 1%);
+  height: calc(var(--h) * 1%);
+  border-radius: var(--r-sm);
+  transition: background-color 150ms;
+}
+
+.stock.is-clickable:hover,
+.stock.is-clickable:focus-visible {
+  background: rgb(255 226 170 / 0.28);
+  box-shadow: 0 0 0 var(--line-thin) rgb(255 230 180 / 0.8);
+}
+
+.stock__row {
+  position: absolute;
+  inset: 0 2% 0 2%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.stock__item {
+  position: relative;
+  flex: 0 0 var(--slot);
+  height: 100%;
+  overflow: visible;
+}
+
+.stock__item .art {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 92%;
+  filter: drop-shadow(0 calc(var(--u) * 1.5) 0 rgb(74 51 36 / 0.4));
+}
+
+.stock__item .art__img {
+  height: 100%;
+  width: auto;
+}
+
+.stock__item .art__placeholder {
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1;
+}
+
+.stock__badge {
+  position: absolute;
+  right: calc(var(--u) * -4);
+  top: calc(var(--u) * -6);
+  z-index: 1;
+}
+
+.stock--empty .stock__row::after {
+  content: '';
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 6%;
+  border-bottom: var(--line-thin) dashed rgb(255 240 210 / 0.35);
+}
+
+/* ---------- 道具 ---------- */
+.prop {
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: calc(var(--w) * 1%);
+  transform: translate(-50%, -100%);
+  transition: transform 150ms;
+}
+
+.prop .art {
+  display: block;
+  width: 100%;
+  filter: drop-shadow(0 calc(var(--u) * 1.5) 0 rgb(74 51 36 / 0.4));
+}
+
+.prop .art__img,
+.prop .art__placeholder {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.prop.is-clickable:hover,
+.prop.is-clickable:focus-visible {
+  transform: translate(-50%, -100%) translateY(calc(var(--u) * -2)) scale(1.06);
+}
+
+.prop.is-clickable:hover .art,
+.prop.is-clickable:focus-visible .art {
+  filter: drop-shadow(0 0 calc(var(--u) * 4) rgb(255 230 170 / 0.95));
+}
+
+.prop__badge {
+  position: absolute;
+  right: calc(var(--u) * -6);
+  top: calc(var(--u) * -6);
+}
+
+/* ---------- 热点 ---------- */
+.hotspot {
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: calc(var(--w) * 1%);
+  height: calc(var(--h) * 1%);
+}
+
+.hotspot--door {
+  border-radius: 46% / 30%;
+  transition: box-shadow 160ms;
+}
+
+.hotspot--door.is-clickable:hover,
+.hotspot--door.is-clickable:focus-visible,
+.hotspot--door.is-clickable:active {
+  outline: none;
+  box-shadow:
+    0 0 0 calc(var(--u) * 3) rgb(255 220 150 / 0.95),
+    0 0 calc(var(--u) * 22) calc(var(--u) * 4) rgb(240 163 74 / 0.7),
+    inset 0 0 calc(var(--u) * 24) rgb(255 220 150 / 0.35);
+}
+
+.hotspot > .art {
+  position: absolute;
+  inset: 0;
+}
+
+.hotspot > .art .art__img,
+.hotspot > .art .art__placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.door-label,
+.door-tag {
+  position: absolute;
+  left: 50%;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.door-label {
+  top: 2%;
+  padding: 0 var(--s3);
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--r-sm);
+  background: linear-gradient(180deg, var(--wood-hi), var(--wood));
+  color: #fff6e6;
+  font: 800 var(--fs-sm) / 1.7 var(--font-title);
+  letter-spacing: 0.15em;
+  text-shadow: 0 1px 0 rgb(74 51 36 / 0.5);
+  transform: translate(-50%, -60%) rotate(-2deg);
+  box-shadow: 0 calc(var(--u) * 2) 0 var(--ink);
+}
+
+.door-tag {
+  top: 22%;
+  width: max-content;
+  max-width: calc(var(--u) * 150);
+  padding: var(--s1) var(--s2);
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  font: 700 var(--fs-xs) / 1.35 var(--font-title);
+  white-space: normal;
+  text-align: center;
+  transform: translate(-50%, -40%) rotate(2deg);
+  box-shadow: 0 calc(var(--u) * 2) 0 var(--ink);
+}
+
+.door-tag__kicker {
+  display: block;
+  color: var(--wood-dark);
+  font-size: var(--fs-xs);
+}
+
+.door-tag__route {
+  display: block;
+  font-size: var(--fs-sm);
+}
+
+.door-tag::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(var(--u) * -6);
+  width: calc(var(--u) * 8);
+  height: calc(var(--u) * 8);
+  border-radius: 50%;
+  background: var(--brick);
+  border: var(--line-thin) solid var(--ink);
+  transform: translateX(-50%);
+}
+
+.away-sign {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s1) var(--s2) var(--s1) var(--s1);
+  border: var(--line-thin) solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow:
+    0 calc(var(--u) * 2) 0 var(--ink),
+    var(--shadow-soft);
+  transform: translate(-70%, -50%) rotate(-3deg);
+  pointer-events: none;
+}
+
+.away-sign .avatar {
+  width: calc(var(--u) * 30);
+  height: calc(var(--u) * 30);
+}
+
+.away-sign__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.away-sign__name {
+  font: 800 var(--fs-xs) / 1.2 var(--font-title);
+}
+
+.away-sign__day {
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.away-sign--hud {
+  position: static;
+  transform: none;
+}
+
+/* 日记本：轻微晃动 + 暖光 */
+.hotspot--journal {
+  overflow: visible;
+}
+
+.journal-book {
+  position: absolute;
+  inset: 0;
+  animation: book-bob 4.2s ease-in-out infinite;
+  animation-delay: var(--loop-delay, 0ms);
+}
+
+.journal-book::before {
+  content: '';
+  position: absolute;
+  inset: -12% -8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 225 160 / 0.75), transparent);
+  animation: glow 2.8s ease-in-out infinite;
+}
+
+.journal-book .art {
+  position: absolute;
+  inset: 0;
+}
+
+.journal-book .art__img,
+.journal-book .art__placeholder {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 calc(var(--u) * 2) 0 rgb(74 51 36 / 0.35));
+}
+
+.hotspot--journal.is-clickable:hover .journal-book,
+.hotspot--journal.is-clickable:focus-visible .journal-book {
+  transform: translateY(calc(var(--u) * -3)) scale(1.08);
+}
+
+.hotspot--journal .red-dot {
+  top: -6%;
+  right: 4%;
+}
+
+/* ---------- 角色 ---------- */
+.figure {
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  height: calc(var(--h) * 1%);
+  aspect-ratio: 0.85;
+  z-index: var(--z);
+  transform: translate(-50%, -100%);
+}
+
+.figure__body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  animation: breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--loop-delay, 0ms);
+  filter: drop-shadow(0 calc(var(--u) * 2) 0 rgb(74 51 36 / 0.2));
+  transition: filter 150ms;
+}
+
+.figure__body .art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.figure__body .art__img,
+.figure__body .art__placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 100%;
+}
+
+.figure__shadow {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -3.5%;
+  height: 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(60 35 20 / 0.45), transparent);
+}
+
+.figure.is-clickable:hover .figure__body,
+.figure.is-clickable:focus-visible .figure__body {
+  filter: drop-shadow(0 0 calc(var(--u) * 2) #fff) drop-shadow(0 0 calc(var(--u) * 7) var(--lamp));
+}
+
+.figure.is-clickable:focus-visible {
+  outline: none;
+}
+
+/* ---------- 头顶标记 ---------- */
+.marker {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  z-index: var(--z);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u) * 3);
+  transform: translate(-50%, calc(-100% + var(--u) * 6));
+  pointer-events: none;
+}
+
+.nameplate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 var(--s2);
+  border: var(--line-thin) solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font: 800 var(--fs-sm) / 1.6 var(--font-title);
+  white-space: nowrap;
+  box-shadow: 0 calc(var(--u) * 2) 0 var(--ink);
+}
+
+.nameplate__rations {
+  display: inline-flex;
+  gap: calc(var(--u) * 1);
+  margin-right: calc(var(--u) * -3);
+}
+
+.nameplate__ration {
+  display: inline-flex;
+  width: calc(var(--u) * 18);
+  height: calc(var(--u) * 18);
+}
+
+.nameplate__ration .art,
+.nameplate__ration .art__img,
+.nameplate__ration .art__placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.marker__pills {
+  display: flex;
+  gap: calc(var(--u) * 3);
+}
+
+.marker__alert {
+  position: relative;
+  padding: 0 var(--s2);
+  border: var(--line-thin) solid var(--brick-ink);
+  border-radius: var(--r-sm);
+  background: var(--brick);
+  color: #fff6ee;
+  font: 800 var(--fs-xs) / 1.6 var(--font-title);
+  white-space: nowrap;
+  animation: alert-bob 1.4s ease-in-out infinite;
+}
+
+.marker__alert::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--u) * -5);
+  width: calc(var(--u) * 8);
+  height: calc(var(--u) * 8);
+  background: var(--brick);
+  border-right: var(--line-thin) solid var(--brick-ink);
+  border-bottom: var(--line-thin) solid var(--brick-ink);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* 面板打开时场景稍微收敛 */
+.stage--behind .stage__layer--marks {
+  opacity: 0.4;
+}
+
+/* 事件画面：场景在背后压暗、轻微模糊 */
+.stage--event .stage__frame {
+  filter: blur(calc(var(--u) * 2.5)) brightness(0.55) saturate(0.9);
+}
+
+/* ---------- 没有场景时的物资侧栏 ---------- */
+.stock-side {
+  position: absolute;
+  right: var(--pad-r);
+  top: calc(var(--pad-t) + var(--u) * 52);
+  max-height: calc(100% - var(--pad-t) - var(--pad-b) - var(--u) * 168);
+  overflow: auto;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  width: calc(var(--u) * 150);
+  padding: var(--s2);
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-md);
+  background: rgb(247 236 215 / 0.92);
+  box-shadow: var(--shadow-soft);
+}
+
+.stock-side__title {
+  font: 800 var(--fs-sm) / 1.4 var(--font-title);
+  color: var(--ink-soft);
+}
+
+.stock-side__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: var(--tap);
+  padding: 0 var(--s1);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.stock-side__row:hover {
+  background: var(--lamp-tint);
+}
+
+.stock-side__icons {
+  display: inline-flex;
+}
+
+.stock-side__icon {
+  display: inline-flex;
+  width: calc(var(--u) * 24);
+  height: calc(var(--u) * 24);
+  margin-right: calc(var(--u) * -8);
+}
+
+.stock-side__icon .art,
+.stock-side__icon .art__img,
+.stock-side__icon .art__placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.stock-side__name {
+  flex: 1;
+  margin-left: var(--s3);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
