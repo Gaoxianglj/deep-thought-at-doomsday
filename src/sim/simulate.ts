@@ -4,11 +4,31 @@ import {
   applyAction,
   newRun,
   validateSetup,
+  type Action,
   type Content,
   type Env,
   type RunState,
 } from '../engine';
+import {
+  aggregateAnalytics,
+  formatAnalytics,
+  Recorder,
+  type AnalyticsSummary,
+  type RunAnalytics,
+  type StepInfo,
+} from './analytics';
 import type { Bot } from './bots';
+import { checkInvariants, checkTransition, type Violation } from './invariants';
+import { stat, type Stat } from './stats';
+import { pct, table } from './table';
+
+export type { Stat } from './stats';
+
+/** 观察者：simulateRun 在开局与每一步之后回调（回放、调试用） */
+export interface RunObserver {
+  start?(run: RunState): void;
+  step?(info: StepInfo): void;
+}
 
 export interface RunOptions {
   seed: string;
@@ -19,11 +39,24 @@ export interface RunOptions {
   unlocked?: string[];
   maxDays?: number;
   maxActions?: number;
+  /** 每步之后做不变量检查（默认开） */
+  check?: boolean;
+  observer?: RunObserver;
+}
+
+export interface CrashInfo {
+  /** setup = 开局（bot.setup / newRun）；bot = bot.act 抛异常；engine = applyAction 抛异常 */
+  stage: 'setup' | 'bot' | 'engine';
+  message: string;
+  stack?: string;
+  /** 抛异常时正在执行的动作（JSON） */
+  action?: string;
+  day?: number;
 }
 
 export interface RunResult {
   seed: string;
-  /** 结局 id，或 'timeout' / 'stuck' */
+  /** 结局 id，或 'timeout' / 'stuck' / 'crashed' */
   ending: string;
   /** 存活天数（结局发生的那天；timeout 时为 maxDays） */
   days: number;
@@ -42,9 +75,15 @@ export interface RunResult {
   rejectedCodes: Record<string, number>;
   /** 判定 stuck 时记录的最后错误码 */
   lastError?: string;
+  /** 不变量违规（同一 code 每局只记第一次） */
+  violations: Violation[];
+  crash?: CrashInfo;
+  analytics: RunAnalytics;
 }
 
 const STUCK_LIMIT = 50;
+/** 每局最多记录多少种不同的违规 */
+const MAX_VIOLATIONS_PER_RUN = 20;
 
 /** 独立于引擎的 mulberry32，用于 bot 自己的随机性 */
 export function makeRng(seed: string): () => number {
@@ -75,44 +114,87 @@ function eventCounts(run: RunState): Record<string, number> {
   return out;
 }
 
+function toCrash(
+  stage: CrashInfo['stage'],
+  err: unknown,
+  extra: { action?: Action; day?: number } = {},
+): CrashInfo {
+  const e = err instanceof Error ? err : new Error(String(err));
+  return {
+    stage,
+    message: e.message,
+    stack: e.stack?.split('\n').slice(0, 6).join('\n'),
+    action: extra.action ? JSON.stringify(extra.action) : undefined,
+    day: extra.day,
+  };
+}
+
 export function simulateRun(content: Content, opts: RunOptions): RunResult {
   const maxDays = opts.maxDays ?? 200;
   const maxActions = opts.maxActions ?? 20000;
+  const check = opts.check ?? true;
   const unlocked = opts.unlocked ?? defaultUnlocked(content);
   const botRng = makeRng(`${opts.seed}|bot|${opts.bot.name}`);
   const rejectedCodes: Record<string, number> = {};
   let rejected = 0;
-
-  const setup = opts.bot.setup(content, opts.mapId, opts.difficultyId, unlocked, botRng);
-  const runOpts = {
-    seed: opts.seed,
-    mapId: opts.mapId,
-    difficultyId: opts.difficultyId,
-    party: setup.party,
-    items: setup.items,
-    unlocked,
+  const recorder = new Recorder(content);
+  const violations: Violation[] = [];
+  const seenCodes = new Set<string>();
+  const addViolations = (list: Violation[]) => {
+    for (const v of list) {
+      if (seenCodes.has(v.code) || violations.length >= MAX_VIOLATIONS_PER_RUN) continue;
+      seenCodes.add(v.code);
+      violations.push(v);
+    }
   };
-  const setupErrors = validateSetup(content, runOpts);
-  if (setupErrors.length) {
-    return {
+
+  /** 开局就失败时的返回值 */
+  const failedStart = (party: string[], lastError: string, crash?: CrashInfo): RunResult => ({
+    seed: opts.seed,
+    ending: crash ? 'crashed' : 'stuck',
+    days: 0,
+    survivors: 0,
+    party,
+    alive: [],
+    counters: {},
+    events: {},
+    newUnlocks: [],
+    rejected: 0,
+    rejectedCodes: {},
+    lastError,
+    violations: [],
+    crash,
+    analytics: recorder.analytics,
+  });
+
+  let party: string[] = [];
+  let run: RunState;
+  try {
+    const setup = opts.bot.setup(content, opts.mapId, opts.difficultyId, unlocked, botRng);
+    party = setup.party;
+    const runOpts = {
       seed: opts.seed,
-      ending: 'stuck',
-      days: 0,
-      survivors: 0,
+      mapId: opts.mapId,
+      difficultyId: opts.difficultyId,
       party: setup.party,
-      alive: [],
-      counters: {},
-      events: {},
-      newUnlocks: [],
-      rejected: 0,
-      rejectedCodes: {},
-      lastError: `setup:${setupErrors.join(',')}`,
+      items: setup.items,
+      unlocked,
     };
+    const setupErrors = validateSetup(content, runOpts);
+    if (setupErrors.length) return failedStart(party, `setup:${setupErrors.join(',')}`);
+    run = newRun(content, runOpts);
+  } catch (err) {
+    const crash = toCrash('setup', err);
+    return failedStart(party, `crash:${crash.message}`, crash);
   }
 
-  let run = newRun(content, runOpts);
+  if (check) addViolations(checkInvariants(content, run));
+  recorder.start(run);
+  opts.observer?.start?.(run);
+
   let ending: string | null = null;
   let lastError: string | undefined;
+  let crash: CrashInfo | undefined;
   let consecutive = 0;
   let actions = 0;
 
@@ -121,21 +203,43 @@ export function simulateRun(content: Content, opts: RunOptions): RunResult {
       ending = run.ending?.id ?? 'stuck';
     } else if (run.day > maxDays) {
       ending = 'timeout';
-    } else if (actions++ >= maxActions) {
+    } else if (actions >= maxActions) {
       ending = 'timeout';
     } else {
       const env: Env = { run, content };
-      const action = opts.bot.act(env, botRng);
-      const res = applyAction(run, action, content);
+      let action: Action;
+      try {
+        action = opts.bot.act(env, botRng);
+      } catch (err) {
+        crash = toCrash('bot', err, { day: run.day });
+        ending = 'crashed';
+        break;
+      }
+      let res: ReturnType<typeof applyAction>;
+      try {
+        res = applyAction(run, action, content);
+      } catch (err) {
+        crash = toCrash('engine', err, { action, day: run.day });
+        ending = 'crashed';
+        break;
+      }
+      const info: StepInfo = { index: actions++, before: run, action, after: res.state };
       if (res.error) {
+        info.error = res.error;
         rejected++;
         rejectedCodes[res.error] = (rejectedCodes[res.error] ?? 0) + 1;
         lastError = res.error;
         if (++consecutive >= STUCK_LIMIT) ending = 'stuck';
       } else {
         consecutive = 0;
+        if (check) {
+          addViolations(checkInvariants(content, res.state));
+          addViolations(checkTransition(run, res.state));
+        }
+        recorder.step(info);
         run = res.state;
       }
+      opts.observer?.step?.(info);
     }
   }
 
@@ -152,20 +256,32 @@ export function simulateRun(content: Content, opts: RunOptions): RunResult {
     newUnlocks: run.unlocked.filter((id) => !unlocked.includes(id)),
     rejected,
     rejectedCodes,
+    violations,
+    analytics: recorder.analytics,
   };
   if (ending === 'stuck') result.lastError = lastError;
+  if (crash) {
+    result.crash = crash;
+    result.lastError = `crash:${crash.message}`;
+  }
   return result;
 }
 
 // ---------- 汇总 ----------
 
-export interface Stat {
-  mean: number;
-  median: number;
-  min: number;
-  max: number;
-  p10: number;
-  p90: number;
+export interface Failure {
+  seed: string;
+  kind: 'crash' | 'stuck' | 'violation';
+  detail: string;
+}
+
+export interface ViolationSummary {
+  code: string;
+  severity: 'error' | 'warning';
+  /** 出现过该违规的局数 */
+  runs: number;
+  example: string;
+  seeds: string[];
 }
 
 export interface Summary {
@@ -173,7 +289,9 @@ export interface Summary {
   botName: string;
   mapId: string;
   difficultyId: string;
-  endings: { id: string; count: number; pct: number }[];
+  /** 是否做了不变量检查 */
+  checked: boolean;
+  endings: { id: string; count: number; pct: number; seeds: string[] }[];
   days: Stat;
   survivors: { mean: number };
   characters: { id: string; appearRate: number; survivalRate: number }[];
@@ -183,34 +301,40 @@ export interface Summary {
   rejectedCodes: Record<string, number>;
   stuck: number;
   timeout: number;
+  crashed: number;
   lastErrors: Record<string, number>;
+  violations: ViolationSummary[];
+  /** 有问题（崩溃 / 卡死 / 违规）的局数 */
+  failedRuns: number;
+  /** 最多 MAX_FAILURES 条，可用 seed 回放 */
+  failures: Failure[];
+  /** 最短 / 最长的一局 */
+  extremes: {
+    shortest: { seed: string; days: number };
+    longest: { seed: string; days: number };
+  } | null;
+  analytics: AnalyticsSummary;
 }
 
-function quantile(sorted: number[], q: number): number {
-  if (!sorted.length) return 0;
-  const pos = (sorted.length - 1) * q;
-  const lo = Math.floor(pos);
-  const hi = Math.ceil(pos);
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
-}
+const MAX_FAILURES = 20;
+const SEEDS_PER_ENDING = 3;
 
-function stat(values: number[]): Stat {
-  const s = [...values].sort((a, b) => a - b);
-  const mean = s.length ? s.reduce((a, b) => a + b, 0) / s.length : 0;
-  return {
-    mean,
-    median: quantile(s, 0.5),
-    min: s[0] ?? 0,
-    max: s[s.length - 1] ?? 0,
-    p10: quantile(s, 0.1),
-    p90: quantile(s, 0.9),
-  };
+function failureOf(r: RunResult): Failure | null {
+  if (r.crash)
+    return { seed: r.seed, kind: 'crash', detail: `${r.crash.stage}: ${r.crash.message}` };
+  if (r.ending === 'stuck')
+    return { seed: r.seed, kind: 'stuck', detail: r.lastError ?? '未知原因' };
+  const errors = r.violations.filter((v) => v.severity === 'error');
+  if (errors.length)
+    return { seed: r.seed, kind: 'violation', detail: errors.map((v) => v.code).join(', ') };
+  return null;
 }
 
 export function summarize(content: Content, opts: RunOptions, results: RunResult[]): Summary {
   const n = results.length;
   const rate = (x: number) => (n ? x / n : 0);
   const endingCount: Record<string, number> = {};
+  const endingSeeds: Record<string, string[]> = {};
   const appear: Record<string, number> = {};
   const survive: Record<string, number> = {};
   const eventRuns: Record<string, number> = {};
@@ -218,8 +342,13 @@ export function summarize(content: Content, opts: RunOptions, results: RunResult
   const unlockCount: Record<string, number> = {};
   const rejectedCodes: Record<string, number> = {};
   const lastErrors: Record<string, number> = {};
+  const violationMap = new Map<string, ViolationSummary>();
+  const failures: Failure[] = [];
+  let failedRuns = 0;
   for (const r of results) {
     endingCount[r.ending] = (endingCount[r.ending] ?? 0) + 1;
+    const seeds = (endingSeeds[r.ending] ??= []);
+    if (seeds.length < SEEDS_PER_ENDING) seeds.push(r.seed);
     for (const id of r.party) appear[id] = (appear[id] ?? 0) + 1;
     for (const id of r.alive) survive[id] = (survive[id] ?? 0) + 1;
     for (const [id, c] of Object.entries(r.events)) {
@@ -230,8 +359,26 @@ export function summarize(content: Content, opts: RunOptions, results: RunResult
     for (const [code, c] of Object.entries(r.rejectedCodes)) {
       rejectedCodes[code] = (rejectedCodes[code] ?? 0) + c;
     }
-    if (r.ending === 'stuck' && r.lastError) {
+    if ((r.ending === 'stuck' || r.ending === 'crashed') && r.lastError) {
       lastErrors[r.lastError] = (lastErrors[r.lastError] ?? 0) + 1;
+    }
+    for (const v of r.violations) {
+      const cur = violationMap.get(v.code) ?? {
+        code: v.code,
+        severity: v.severity,
+        runs: 0,
+        example: '',
+        seeds: [],
+      };
+      cur.runs++;
+      if (!cur.example) cur.example = `第 ${v.day} 天: ${v.message}`;
+      if (cur.seeds.length < SEEDS_PER_ENDING) cur.seeds.push(r.seed);
+      violationMap.set(v.code, cur);
+    }
+    const f = failureOf(r);
+    if (f) {
+      failedRuns++;
+      if (failures.length < MAX_FAILURES) failures.push(f);
     }
   }
   const endingIds = [
@@ -248,15 +395,18 @@ export function summarize(content: Content, opts: RunOptions, results: RunResult
     ...knownEvents,
     ...Object.keys(eventRuns).filter((id) => !content.events.has(id)),
   ];
+  const byDays = [...results].sort((a, b) => a.days - b.days);
   return {
     runs: n,
     botName: opts.bot.name,
     mapId: opts.mapId,
     difficultyId: opts.difficultyId,
+    checked: opts.check ?? true,
     endings: endingIds.map((id) => ({
       id,
       count: endingCount[id],
       pct: n ? (endingCount[id] / n) * 100 : 0,
+      seeds: endingSeeds[id] ?? [],
     })),
     days: stat(results.map((r) => r.days)),
     survivors: { mean: stat(results.map((r) => r.survivors)).mean },
@@ -277,7 +427,24 @@ export function summarize(content: Content, opts: RunOptions, results: RunResult
     rejectedCodes,
     stuck: endingCount.stuck ?? 0,
     timeout: endingCount.timeout ?? 0,
+    crashed: endingCount.crashed ?? 0,
     lastErrors,
+    violations: [...violationMap.values()].sort(
+      (a, b) => Number(b.severity === 'error') - Number(a.severity === 'error') || b.runs - a.runs,
+    ),
+    failedRuns,
+    failures,
+    extremes: n
+      ? {
+          shortest: { seed: byDays[0].seed, days: byDays[0].days },
+          longest: { seed: byDays[n - 1].seed, days: byDays[n - 1].days },
+        }
+      : null,
+    analytics: aggregateAnalytics(
+      content,
+      results.map((r) => r.analytics),
+      opts.maxDays ?? 200,
+    ),
   };
 }
 
@@ -295,56 +462,62 @@ export function simulateMany(
 
 // ---------- 文本输出 ----------
 
-function width(s: string): number {
-  let w = 0;
-  for (const ch of s) {
-    const c = ch.codePointAt(0)!;
-    w +=
-      (c >= 0x1100 && c <= 0x115f) ||
-      (c >= 0x2e80 && c <= 0xa4cf) ||
-      (c >= 0xac00 && c <= 0xd7a3) ||
-      (c >= 0xf900 && c <= 0xfaff) ||
-      (c >= 0xfe30 && c <= 0xfe6f) ||
-      (c >= 0xff00 && c <= 0xff60) ||
-      (c >= 0xffe0 && c <= 0xffe6)
-        ? 2
-        : 1;
-  }
-  return w;
-}
-const padR = (s: string, w: number) => s + ' '.repeat(Math.max(0, w - width(s)));
-const padL = (s: string, w: number) => ' '.repeat(Math.max(0, w - width(s))) + s;
-
-function table(head: string[], rows: string[][]): string[] {
-  const widths = head.map((h, i) => Math.max(width(h), ...rows.map((r) => width(r[i]))));
-  const line = (r: string[]) =>
-    '  ' + r.map((c, i) => (i === 0 ? padR(c, widths[i]) : padL(c, widths[i]))).join('  ');
-  return [line(head), '  ' + widths.map((w) => '-'.repeat(w)).join('  '), ...rows.map(line)];
+export interface FormatOptions {
+  /** 打印全部事件选项而不只是异常项 */
+  detail?: boolean;
 }
 
-const pct = (x: number, digits = 1) => `${(x * 100).toFixed(digits)}%`;
-
-export function formatSummary(s: Summary, content: Content): string {
+export function formatSummary(s: Summary, content: Content, fmt: FormatOptions = {}): string {
   const name = (m: Map<string, { name: string }>, id: string) => m.get(id)?.name ?? id;
   const out: string[] = [];
   const mapName = name(content.maps, s.mapId);
   const diffName = name(content.difficulties, s.difficultyId);
   out.push(`== ${mapName} / ${diffName} / 策略 ${s.botName} / ${s.runs} 局 ==`);
 
+  // 健康检查放最前面：这是最需要立刻处理的东西
+  out.push('', '健康检查');
+  if (!s.failedRuns) {
+    out.push(
+      s.checked
+        ? `  通过：${s.runs} 局无崩溃、无卡死、无不变量错误`
+        : `  无崩溃、无卡死（未做不变量检查）`,
+    );
+  } else {
+    out.push(`  ${s.failedRuns} / ${s.runs} 局有问题（崩溃 ${s.crashed}，卡死 ${s.stuck}）`);
+    for (const [msg, c] of Object.entries(s.lastErrors)) out.push(`  卡死/崩溃原因: ${msg} x${c}`);
+    out.push(
+      `  问题种子（前 ${s.failures.length} 个）:`,
+      ...s.failures.map((f) => `    ${f.seed}  [${f.kind}] ${f.detail}`),
+    );
+  }
+  for (const v of s.violations) {
+    out.push(
+      `  [${v.severity === 'error' ? '错误' : '警告'}] ${v.code}  ${v.runs} 局 (${((v.runs / s.runs) * 100).toFixed(0)}%)  种子 ${v.seeds.join(', ')}`,
+      `      例: ${v.example}`,
+    );
+  }
+
   out.push('', '结局分布');
   const endingName = (id: string) =>
-    id === 'timeout' ? '超时' : id === 'stuck' ? '卡死' : (content.endings.get(id)?.name ?? id);
+    id === 'timeout'
+      ? '超时'
+      : id === 'stuck'
+        ? '卡死'
+        : id === 'crashed'
+          ? '崩溃'
+          : (content.endings.get(id)?.name ?? id);
   out.push(
     ...table(
-      ['结局', '局数', '占比'],
-      s.endings.map((e) => [endingName(e.id), String(e.count), `${e.pct.toFixed(1)}%`]),
+      ['结局', '局数', '占比', '示例种子'],
+      s.endings.map((e) => [
+        endingName(e.id),
+        String(e.count),
+        `${e.pct.toFixed(1)}%`,
+        e.seeds.join(', '),
+      ]),
     ),
   );
-  if (s.stuck || s.timeout) {
-    out.push(`  卡死 ${s.stuck} 局，超时 ${s.timeout} 局`);
-    for (const [code, c] of Object.entries(s.lastErrors))
-      out.push(`  卡死时最后的错误码: ${code} x${c}`);
-  }
+  if (s.stuck || s.timeout) out.push(`  卡死 ${s.stuck} 局，超时 ${s.timeout} 局`);
 
   const d = s.days;
   out.push('', '存活天数');
@@ -364,6 +537,12 @@ export function formatSummary(s: Summary, content: Content): string {
       ],
     ),
   );
+  if (s.extremes)
+    out.push(
+      `  最短 ${s.extremes.shortest.days} 天（${s.extremes.shortest.seed}），最长 ${s.extremes.longest.days} 天（${s.extremes.longest.seed}）`,
+    );
+
+  out.push(...formatAnalytics(s.analytics, content, { botName: s.botName, detail: fmt.detail }));
 
   if (s.characters.length) {
     out.push('', '角色');

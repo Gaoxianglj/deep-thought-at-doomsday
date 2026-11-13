@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "validate": "tsx scripts/validate-content.ts",
-    "sim": "tsx scripts/simulate.ts"
+    "sim": "tsx scripts/simulate.ts",
+    "replay": "tsx scripts/replay.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

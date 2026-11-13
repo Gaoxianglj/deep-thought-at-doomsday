@@ -130,6 +130,8 @@ export function startDay(env: Env): void {
   env.run.plan = { rations: {} };
   for (const step of MORNING_STEPS) step.run(env);
   checkDeaths(env);
+  // 清晨结算后若已没有任何活人（例如最后一个外出者没能回来）：不再弹事件，直接判结局
+  if (aliveIds(env.run).length === 0 && checkEndings(env)) return;
   nextEvent(env);
 }
 

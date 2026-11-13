@@ -305,3 +305,58 @@ describe('避难所日记', () => {
     expect(new Set(texts).size).toBe(2);
   });
 });
+
+describe('全员消失后的清晨', () => {
+  /** 第 2 天清晨的 dayStart 规则让队员全部离队；每天必抽随机事件，且有一个无需角色的事件可抽 */
+  const doomed = (everyone: boolean) =>
+    makeEnv({ party: ['alpha', 'beta'] }, (db) => {
+      db.maps[0].eventDailyChance = 1;
+      for (const e of db.events) e.weight = 0;
+      db.events.push({
+        id: 'ambient',
+        title: '风声',
+        text: '外面刮起了风。',
+        weight: 1,
+        choices: [{ id: 'ok', text: '嗯', outcomes: [{ text: '风停了。' }] }],
+      });
+      db.maps[0].rules = [
+        {
+          id: 'vanish',
+          trigger: 'dayStart',
+          when: { day: { gte: 2 } },
+          effects: [
+            { leaveParty: { id: 'alpha' }, reason: 'gone' },
+            ...(everyone ? [{ leaveParty: { id: 'beta' }, reason: 'gone' as const }] : []),
+          ],
+        },
+      ];
+    });
+
+  /** 走完第 1 天的事件，再结束这一天 */
+  const throughDay1 = (env: Env) =>
+    play(
+      env,
+      { type: 'chooseEventOption', choiceId: 'ok' },
+      { type: 'continueEvent' },
+      { type: 'endDay' },
+    );
+
+  it('没有活人时不再弹事件，直接进入兜底结局', () => {
+    const env = doomed(true);
+    expect(env.run.pendingEvent?.eventId).toBe('ambient'); // 第 1 天确实会弹事件
+    const run = throughDay1(env);
+    expect(run.day).toBe(2);
+    expect(run.phase).toBe('ended');
+    expect(run.pendingEvent).toBeNull();
+    expect(run.ending).toEqual({ id: 'wiped', day: 2 });
+    expect(run.counters.events).toBe(1); // 只有第 1 天那一次
+  });
+
+  it('还有活人时第 2 天照常弹事件', () => {
+    const run = throughDay1(doomed(false));
+    expect(run.day).toBe(2);
+    expect(run.phase).toBe('event');
+    expect(run.pendingEvent?.eventId).toBe('ambient');
+    expect(run.ending).toBeNull();
+  });
+});

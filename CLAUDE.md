@@ -8,17 +8,18 @@
 
 ## 1. 常用命令
 
-| 命令                                                         | 用途                                                                                                                                                |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                                                | 本地开发服务器（base 为 `/deep-thought-at-doomsday/`，地址要带这个路径）                                                                            |
-| `npm run dev:host`                                           | 同上，局域网可访问（手机预览；http 下 Service Worker 不生效）                                                                                       |
-| `npm run build`                                              | `tsc && vite build`，类型检查 + 打包                                                                                                                |
-| `npm run preview`                                            | 预览打包产物                                                                                                                                        |
-| `npm test`                                                   | `vitest run`，跑 `tests/**/*.test.ts`                                                                                                               |
-| `npm run lint`                                               | `eslint .`                                                                                                                                          |
-| `npm run format`                                             | `prettier --write .`                                                                                                                                |
-| `npm run validate`                                           | 校验 `src/data` 内容；有 error 退出码 1。`-- --strict` 把 warning 也当失败                                                                          |
-| `npm run sim -- --runs 200 --difficulty normal --bot random` | 批量模拟；其余参数：`--map <id>`、`--seed <前缀>`、`--max-days <n>`、`--unlock-all`、`--json`、`--help`。`--bot` 可选 `sensible`（默认）\| `random` |
+| 命令                                                                 | 用途                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                                        | 本地开发服务器（base 为 `/deep-thought-at-doomsday/`，地址要带这个路径）                                                                                                                                                           |
+| `npm run dev:host`                                                   | 同上，局域网可访问（手机预览；http 下 Service Worker 不生效）                                                                                                                                                                      |
+| `npm run build`                                                      | `tsc && vite build`，类型检查 + 打包                                                                                                                                                                                               |
+| `npm run preview`                                                    | 预览打包产物                                                                                                                                                                                                                       |
+| `npm test`                                                           | `vitest run`，跑 `tests/**/*.test.ts`                                                                                                                                                                                              |
+| `npm run lint`                                                       | `eslint .`                                                                                                                                                                                                                         |
+| `npm run format`                                                     | `prettier --write .`                                                                                                                                                                                                               |
+| `npm run validate`                                                   | 校验 `src/data` 内容；有 error 退出码 1。`-- --strict` 把 warning 也当失败                                                                                                                                                         |
+| `npm run sim -- --runs 200 --difficulty normal --bot random`         | 批量模拟 + 健康检查；其余参数：`--map <id>`、`--seed <前缀>`、`--max-days <n>`、`--unlock-all`、`--no-check`、`--detail`、`--json`、`--help`。`--bot` 可选 `sensible`（默认）\| `random`。有崩溃 / 卡死 / 不变量**错误**时退出码 1 |
+| `npm run replay -- --seed sim-12 --difficulty normal --bot sensible` | 按种子回放一局（逐日轨迹）；其余参数：`--map`、`--unlock-all`、`--max-days`（须与产生该种子的 sim 一致）、`--from <天>` `--to <天>`、`--brief`、`--no-check`、`--json`                                                             |
 
 **提交前必须全绿：**
 
@@ -35,19 +36,19 @@ ui → save → engine ← data
 sim → engine        validation → engine
 ```
 
-| 目录                         | 职责                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `src/engine/`                | 纯逻辑，零 DOM / IndexedDB / 时间 / `Math.random`；schema、条件、效果、规则、事件、按天流程、外出、开局、结局 |
-| `src/data/`                  | 全部内容（纯数据）与界面固定文案 `ui-text.ts`；`index.ts` 汇总导出 `contentDB`                                |
-| `src/save/`                  | IndexedDB、档案、版本迁移、`sanitize`、导入导出、存档码、自动保存                                             |
-| `src/ui/`                    | 无框架 UI：`store.ts`（状态容器）、`screens/`、`components/`、`art.ts`（美术回退链）、`text.ts`               |
-| `src/sim/`                   | 无 UI 批量模拟：策略机器人 `bots.ts` + 统计 `simulate.ts`                                                     |
-| `src/validation/validate.ts` | 内容校验（纯函数）；修正键登记表 `MODIFIER_KEY_PATTERNS` 与文案变量表在这里                                   |
-| `scripts/`                   | CLI 入口：`validate-content.ts`、`simulate.ts`                                                                |
-| `src/pwa.ts` `src/pwa.css`   | Service Worker 注册与"有新版本"横幅                                                                           |
-| `tests/`                     | `engine/` `save/` `sim/` `ui/` `validation/` 与夹具 `fixtures/`（见第 7 节）                                  |
-| `public/art/`                | 美术：`<类别>/<id>/<状态>.webp`（见 5.10）                                                                    |
-| `docs/`                      | DESIGN.md、ENGINE_GUIDE.md、SETUP_REPORT.md                                                                   |
+| 目录                         | 职责                                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/engine/`                | 纯逻辑，零 DOM / IndexedDB / 时间 / `Math.random`；schema、条件、效果、规则、事件、按天流程、外出、开局、结局                              |
+| `src/data/`                  | 全部内容（纯数据）与界面固定文案 `ui-text.ts`；`index.ts` 汇总导出 `contentDB`                                                             |
+| `src/save/`                  | IndexedDB、档案、版本迁移、`sanitize`、导入导出、存档码、自动保存                                                                          |
+| `src/ui/`                    | 无框架 UI：`store.ts`（状态容器）、`screens/`、`components/`、`art.ts`（美术回退链）、`text.ts`                                            |
+| `src/sim/`                   | 无 UI 批量模拟：策略机器人 `bots.ts`、统计 `simulate.ts`、不变量 `invariants.ts`、死因/曲线/外出/选项分析 `analytics.ts`、回放 `replay.ts` |
+| `src/validation/validate.ts` | 内容校验（纯函数）；修正键登记表 `MODIFIER_KEY_PATTERNS` 与文案变量表在这里                                                                |
+| `scripts/`                   | CLI 入口：`validate-content.ts`、`simulate.ts`                                                                                             |
+| `src/pwa.ts` `src/pwa.css`   | Service Worker 注册与"有新版本"横幅                                                                                                        |
+| `tests/`                     | `engine/` `save/` `sim/` `ui/` `validation/` 与夹具 `fixtures/`（见第 7 节）                                                               |
+| `public/art/`                | 美术：`<类别>/<id>/<状态>.webp`（见 5.10）                                                                                                 |
+| `docs/`                      | DESIGN.md、ENGINE_GUIDE.md、SETUP_REPORT.md                                                                                                |
 
 ## 3. 铁律
 
@@ -203,7 +204,7 @@ sim → engine        validation → engine
 3. `dayStartRules` 触发 `dayStart`
 4. `diary` 写 `diaryPerDay` 条日记
 5. `trimLog` 丢掉超过 `logKeepDays` 的日志
-6. （步骤之后）`checkDeaths` → `nextEvent`：先处理已到期的队列事件（`day <= 今天`，全部依次进行，且今天不再随机抽）；否则按 `event.dailyChance` 抽 1 个随机事件；都没有则进入 `plan` 阶段并检查结局
+6. （步骤之后）`checkDeaths` →（若此刻已没有任何活人：不再弹事件，直接判结局，未命中其他结局则走兜底）→ `nextEvent`：先处理已到期的队列事件（`day <= 今天`，全部依次进行，且今天不再随机抽）；否则按 `event.dailyChance` 抽 1 个随机事件；都没有则进入 `plan` 阶段并检查结局
 
 入夜 `NIGHT_STEPS`（玩家点"结束这一天"，仅 `plan` 阶段可用）：
 
@@ -506,7 +507,18 @@ sim → engine        validation → engine
 | 没有 trigger 的规则必须有 modifiers | 想写一次性效果就加 `trigger`；想写持续修正就用 `modifiers` |
 | 权重为 0 且没有被引用               | 加 `queueEvent` / `next` / `specials`，或删掉              |
 
-**`npm run sim`**：默认每个难度各跑 100 局、策略 `sensible`。输出段落：结局分布、存活天数（均值/中位/p10/p90…）、各角色出场率与存活率、各事件触发率、**从未触发的事件**、新解锁率；若有"卡死/超时"或被拒绝的动作码要先查原因（卡死 = 机器人连续动作被拒，常见于新增机制而 bot 不会用）。调数值的做法：改一处（物品数值、`danger`、`dailyDelta`、点数），固定 `--seed` 重跑对比结局分布与存活天数；对比不同难度之间的梯度；用 `--bot random` 做下限参照。bot 在 `src/sim/bots.ts`，不得写具体内容 id。
+**`npm run sim`**：默认每个难度各跑 100 局、策略 `sensible`。输出段落（自上而下）：
+
+- **健康检查**：崩溃（bot / 引擎抛异常，只标记该局，不拖垮整批）、卡死、**不变量违规**（`src/sim/invariants.ts`：每个动作之后检查属性范围、库存、队伍与角色一致性、外出一致性、阶段与待处理事件、不复活 / 只增不减等）。违规分 `error`（一定是 bug，退出码 1）与 `warning`（疑似流程缺口，只列出）。每类给出示例种子，报告末尾给出可直接粘贴的 `npm run replay` 命令。
+- 结局分布（带每种结局的示例种子）、存活天数（均值/中位/p10/p90…，含最短 / 最长一局的种子）。
+- **死亡 / 离队原因**：按"夜间结算（致命属性 + 同时归零的属性 + 当时状态）/ 事件+选项 / 外出失踪（地点）"分类；**每日曲线**：仍在继续的比例、平均活人、各配给标签的库存均值与断供率；**外出**：各地点场均出发、平安返回、失踪、途中死亡、失踪率；**事件选项**：默认只列异常（从未可选 / 从未被选 / 几乎总被选），`--detail` 看全部（想看选项覆盖请用 `--bot random`，`sensible` 的选择是确定性的）。
+- 各角色出场率与存活率、各事件触发率、**从未触发的事件**、新解锁率、被拒绝的动作码。
+
+卡死 = 机器人连续动作被拒，常见于新增机制而 bot 不会用。调数值的做法：改一处（物品数值、`danger`、`dailyDelta`、点数），固定 `--seed` 重跑对比结局分布与存活天数；对比不同难度之间的梯度；用 `--bot random` 做下限参照。bot 在 `src/sim/bots.ts`，不得写具体内容 id。**注意 `sensible` 只是贪心策略，不代表好玩家**：它的通关率不能直接当作"游戏难度"。
+
+**`npm run replay`**：用报告里的种子重跑那一局（须带上与 sim 相同的 `--map` `--difficulty` `--bot` `--unlock-all` `--max-days`，同种子同结果），按天打印：角色属性与状态、库存、事件（正文 + 选项 + 所选 + 结果）、配给 / 用药 / 外出动作、引擎日志，末尾给出结局与不变量违规。`--json` 输出结构化轨迹，便于让 AI 逐步分析。
+
+**新增不变量**：在 `src/sim/invariants.ts` 的 `checkInvariants`（任意时刻都成立的约束）或 `checkTransition`（一步前后的约束）里加一条，用稳定的 `code`，不要写内容 id；拿不准是否一定是 bug 就标 `warning`；在 `tests/sim/invariants.test.ts` 补"构造坏状态能报出"的用例，并确认 `npm test` 里正式数据的冒烟仍然零 `error`。**新增分析统计**：在 `src/sim/analytics.ts` 的 `Recorder`（逐步观察前后状态）里记录，`aggregateAnalytics` 汇总，`formatAnalytics` 输出，并保持 `tests/sim/analytics.test.ts` 里"分析数据与引擎计数器一致"的校验。
 
 ## 8. 存档注意事项
 

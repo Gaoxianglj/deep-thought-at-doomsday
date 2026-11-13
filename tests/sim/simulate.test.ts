@@ -143,6 +143,7 @@ describe('正式数据冒烟', () => {
       });
       expect(s.stuck).toBe(0);
       expect(s.runs).toBe(20);
+      expect(s.failures).toEqual([]);
     }
   });
 
@@ -154,8 +155,21 @@ describe('正式数据冒烟', () => {
       runs: 200,
     });
     expect(s.stuck).toBe(0);
+    expect(s.failures).toEqual([]); // 无崩溃、无卡死、无不变量错误
     expect(s.endings.length).toBeGreaterThanOrEqual(2);
     expect(Object.keys(s.rejectedCodes)).toEqual([]);
+  });
+
+  it.skipIf(!ready)('random bot + 全部角色解锁：无崩溃、无不变量错误', () => {
+    const s = simulateMany(real, {
+      mapId: real.db.maps[0].id,
+      difficultyId: real.db.difficulties[0].id,
+      bot: randomBot,
+      unlocked: real.db.characters.map((c) => c.id),
+      runs: 60,
+      maxDays: 120,
+    });
+    expect(s.failures).toEqual([]);
   });
 
   it.skipIf(!ready)('同种子同结果（正式数据，含外出与携带）', () => {
