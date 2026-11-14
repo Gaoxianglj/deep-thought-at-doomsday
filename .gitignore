@@ -30,3 +30,6 @@ dist-ssr
 dev-dist
 coverage
 art-src/raw/
+
+# AI / 手动试玩的会话文件
+.playtest/

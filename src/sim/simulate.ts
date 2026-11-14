@@ -17,7 +17,7 @@ import {
   type RunAnalytics,
   type StepInfo,
 } from './analytics';
-import type { Bot } from './bots';
+import type { Bot, BotMemory } from './bots';
 import { checkInvariants, checkTransition, type Violation } from './invariants';
 import { stat, type Stat } from './stats';
 import { pct, table } from './table';
@@ -135,6 +135,7 @@ export function simulateRun(content: Content, opts: RunOptions): RunResult {
   const check = opts.check ?? true;
   const unlocked = opts.unlocked ?? defaultUnlocked(content);
   const botRng = makeRng(`${opts.seed}|bot|${opts.bot.name}`);
+  const botMem: BotMemory = {};
   const rejectedCodes: Record<string, number> = {};
   let rejected = 0;
   const recorder = new Recorder(content);
@@ -170,7 +171,7 @@ export function simulateRun(content: Content, opts: RunOptions): RunResult {
   let party: string[] = [];
   let run: RunState;
   try {
-    const setup = opts.bot.setup(content, opts.mapId, opts.difficultyId, unlocked, botRng);
+    const setup = opts.bot.setup(content, opts.mapId, opts.difficultyId, unlocked, botRng, botMem);
     party = setup.party;
     const runOpts = {
       seed: opts.seed,
@@ -209,7 +210,7 @@ export function simulateRun(content: Content, opts: RunOptions): RunResult {
       const env: Env = { run, content };
       let action: Action;
       try {
-        action = opts.bot.act(env, botRng);
+        action = opts.bot.act(env, botRng, botMem);
       } catch (err) {
         crash = toCrash('bot', err, { day: run.day });
         ending = 'crashed';
@@ -226,6 +227,17 @@ export function simulateRun(content: Content, opts: RunOptions): RunResult {
       const info: StepInfo = { index: actions++, before: run, action, after: res.state };
       if (res.error) {
         info.error = res.error;
+        // 引擎约定：动作被拒绝时返回原来的 state 对象，未发生任何变化
+        if (check && res.state !== run) {
+          addViolations([
+            {
+              code: 'action.reject-mutated',
+              message: `动作 ${action.type} 被拒绝（${res.error}），但返回了新的 state 对象`,
+              day: run.day,
+              severity: 'error',
+            },
+          ]);
+        }
         rejected++;
         rejectedCodes[res.error] = (rejectedCodes[res.error] ?? 0) + 1;
         lastError = res.error;
@@ -292,6 +304,8 @@ export interface Summary {
   /** 是否做了不变量检查 */
   checked: boolean;
   endings: { id: string; count: number; pct: number; seeds: string[] }[];
+  /** 通关率：以"得救 / 自给自足"（kind 为 rescue / selfRescue）的结局收场的局数占比，0–1 */
+  winRate: number;
   days: Stat;
   survivors: { mean: number };
   characters: { id: string; appearRate: number; survivalRate: number }[];
@@ -408,6 +422,12 @@ export function summarize(content: Content, opts: RunOptions, results: RunResult
       pct: n ? (endingCount[id] / n) * 100 : 0,
       seeds: endingSeeds[id] ?? [],
     })),
+    winRate: rate(
+      results.filter((r) => {
+        const kind = content.endings.get(r.ending)?.kind;
+        return kind === 'rescue' || kind === 'selfRescue';
+      }).length,
+    ),
     days: stat(results.map((r) => r.days)),
     survivors: { mean: stat(results.map((r) => r.survivors)).mean },
     characters: charIds.map((id) => ({
@@ -444,20 +464,58 @@ export function summarize(content: Content, opts: RunOptions, results: RunResult
       content,
       results.map((r) => r.analytics),
       opts.maxDays ?? 200,
+      results.map((r) => `${r.ending}@${r.days}`),
     ),
   };
 }
 
-export function simulateMany(
+export type SimulateManyOptions = Omit<RunOptions, 'seed'> & {
+  seed?: string;
+  runs: number;
+  seedPrefix?: string;
+};
+
+const seedPrefixOf = (opts: { seedPrefix?: string; seed?: string }) =>
+  opts.seedPrefix ?? opts.seed ?? 'sim';
+
+/** 跑指定序号的局（种子 = `${前缀}-${序号}`）；多进程并行时每个进程跑其中一片 */
+export function simulateRuns(
   content: Content,
-  opts: Omit<RunOptions, 'seed'> & { seed?: string; runs: number; seedPrefix?: string },
-): Summary {
-  const prefix = opts.seedPrefix ?? opts.seed ?? 'sim';
+  opts: SimulateManyOptions,
+  indices: Iterable<number>,
+): RunResult[] {
+  const prefix = seedPrefixOf(opts);
   const results: RunResult[] = [];
-  for (let i = 0; i < opts.runs; i++) {
+  for (const i of indices) {
     results.push(simulateRun(content, { ...opts, seed: `${prefix}-${i}` }));
   }
-  return summarize(content, { ...opts, seed: prefix }, results);
+  return results;
+}
+
+/** 并行分片合并：第 i 局 = 第 (i % shards.length) 片的第 floor(i / shards.length) 个 */
+export function mergeShards<T>(shards: T[][], runs: number): T[] {
+  return Array.from(
+    { length: runs },
+    (_, i) => shards[i % shards.length][Math.floor(i / shards.length)],
+  );
+}
+
+/** 把已有的结果汇总（序号顺序决定"示例种子"等，所以并行合并后须按序号排好） */
+export function summarizeMany(
+  content: Content,
+  opts: SimulateManyOptions,
+  results: RunResult[],
+): Summary {
+  return summarize(content, { ...opts, seed: seedPrefixOf(opts) }, results);
+}
+
+export function simulateMany(content: Content, opts: SimulateManyOptions): Summary {
+  const results = simulateRuns(
+    content,
+    opts,
+    Array.from({ length: opts.runs }, (_, i) => i),
+  );
+  return summarizeMany(content, opts, results);
 }
 
 // ---------- 文本输出 ----------
@@ -517,6 +575,7 @@ export function formatSummary(s: Summary, content: Content, fmt: FormatOptions =
       ]),
     ),
   );
+  out.push(`  通关率（得救 / 自给自足）: ${pct(s.winRate)}`);
   if (s.stuck || s.timeout) out.push(`  卡死 ${s.stuck} 局，超时 ${s.timeout} 局`);
 
   const d = s.days;

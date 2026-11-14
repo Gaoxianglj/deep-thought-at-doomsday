@@ -9,6 +9,7 @@ import {
   type RunObserver,
   type RunResult,
 } from '../../src/sim/simulate';
+import { computeDiversity, type RunAnalytics } from '../../src/sim/analytics';
 import { makeContent } from '../fixtures/content';
 
 const lively = () =>
@@ -154,6 +155,8 @@ describe('逐局分析数据的一致性', () => {
       for (const tag of content.config.rationTags) {
         expect(a.supplyByDay[tag].length).toBe(a.aliveByDay.length);
       }
+      // 事件序列长度 = 引擎的事件计数器
+      expect(a.eventSeq.length).toBe(r.counters.events ?? 0);
       // 死亡 / 离队记录数 = 引擎计数器
       expect(a.deaths.length).toBe((r.counters.death ?? 0) + (r.counters.leave ?? 0));
     }
@@ -245,5 +248,64 @@ describe('汇总的其他新字段', () => {
     expect(row?.enabled).toBe(0);
     expect(row?.picked).toBe(0);
     expect(formatSummary(sum, stuck)).toContain('从未可选: 「破门」· 用药箱砸');
+  });
+});
+
+describe('computeDiversity', () => {
+  const run = (eventSeq: string[]): RunAnalytics => ({
+    deaths: [],
+    aliveByDay: [],
+    supplyByDay: {},
+    departures: [],
+    expeditions: [],
+    choices: {},
+    eventSeq,
+  });
+
+  it('所有局完全相同：相似度 1、重复局 100%、开场只有 1 种', () => {
+    const runs = Array.from({ length: 6 }, () => run(['a', 'b', 'c', 'a']));
+    const d = computeDiversity(
+      runs,
+      runs.map(() => 'x@5'),
+    );
+    expect(d.meanJaccard).toBeCloseTo(1, 10);
+    expect(d.duplicateRunRate).toBe(1);
+    expect(d.openings.distinct).toBe(1);
+    expect(d.openings.topShare).toBe(1);
+    expect(d.repeat.meanMax).toBe(2);
+  });
+
+  it('各局事件互不相同：相似度 0、熵最大、没有重复局', () => {
+    const runs = ['a', 'b', 'c', 'd'].map((id) => run([id]));
+    const d = computeDiversity(
+      runs,
+      runs.map(() => 'x@5'),
+    );
+    expect(d.meanJaccard).toBe(0);
+    expect(d.eventEntropy).toBeCloseTo(1, 10);
+    expect(d.duplicateRunRate).toBe(0);
+    expect(d.openings.distinct).toBe(4);
+  });
+
+  it('重复最多的事件与单局最大重复次数', () => {
+    const d = computeDiversity([run(['a', 'a', 'a', 'b']), run(['a', 'b'])]);
+    expect(d.repeat.worstEventId).toBe('a');
+    expect(d.repeat.worstPerRun).toBeCloseTo(2, 10);
+    expect(d.repeat.meanMax).toBeCloseTo(2, 10);
+  });
+
+  it('空输入不除零', () => {
+    const d = computeDiversity([]);
+    expect(d.eventEntropy).toBe(0);
+    expect(d.duplicateRunRate).toBe(0);
+    expect(Number.isFinite(d.repeat.meanMax)).toBe(true);
+  });
+
+  it('汇总里带多样性，文本报告里有对应段落', () => {
+    const content = lively();
+    const s = simulateMany(content, { ...base, bot: sensibleBot, runs: 30, seedPrefix: 'dv' });
+    expect(s.analytics.diversity.eventEntropy).toBeGreaterThanOrEqual(0);
+    expect(s.analytics.diversity.eventEntropy).toBeLessThanOrEqual(1);
+    expect(formatSummary(s, content)).toContain('多样性（跨局）');
   });
 });

@@ -4,6 +4,7 @@
  * 零 DOM、零 Node 专属 API；不含任何内容 id。
  */
 import { getEventView, type Action, type Content, type LogEntry, type RunState } from '../engine';
+import type { StepInfo } from './analytics';
 import { simulateRun, type RunOptions, type RunResult } from './simulate';
 
 export interface CharSnapshot {
@@ -42,8 +43,14 @@ export interface ReplayStep {
   newDay?: DaySnapshot;
 }
 
+/** 回放结尾只需要这些字段（play 会话没有完整的 RunResult） */
+export type ReplayOutcome = Pick<
+  RunResult,
+  'ending' | 'days' | 'survivors' | 'violations' | 'crash' | 'lastError'
+>;
+
 export interface Replay {
-  result: RunResult;
+  result: ReplayOutcome;
   start: DaySnapshot;
   steps: ReplayStep[];
 }
@@ -81,42 +88,47 @@ export function newLogEntries(before: LogEntry[], after: LogEntry[]): LogEntry[]
   return after;
 }
 
-export function replayRun(content: Content, opts: ReplayOptions): Replay {
+/** 逐步记录器：喂给它开局状态与每一步（simulateRun 的观察者 / play 会话重放都用它） */
+export function createReplayRecorder(content: Content) {
   const steps: ReplayStep[] = [];
   let start: DaySnapshot = { day: 1, inventory: {}, characters: [] };
-  const result = simulateRun(content, {
-    ...opts,
-    observer: {
-      start(run) {
-        start = snapshot(run);
-      },
-      step({ index, before, action, after, error }) {
-        const step: ReplayStep = {
-          index,
-          day: before.day,
-          action,
-          logs: error ? [] : newLogEntries(before.log, after.log),
-        };
-        if (error) step.error = error;
-        if (!error && action.type === 'chooseEventOption' && before.pendingEvent) {
-          const view = getEventView({ run: structuredClone(before), content });
-          if (view) {
-            step.event = {
-              id: view.eventId,
-              title: view.title,
-              text: view.text,
-              choices: view.choices,
-              picked: action.choiceId,
-              result: after.pendingEvent?.result?.text,
-            };
-          }
-        }
-        if (!error && after.day !== before.day) step.newDay = snapshot(after);
-        steps.push(step);
-      },
+  return {
+    steps,
+    getStart: () => start,
+    start(run: RunState): void {
+      start = snapshot(run);
     },
-  });
-  return { result, start, steps };
+    step({ index, before, action, after, error }: StepInfo): void {
+      const step: ReplayStep = {
+        index,
+        day: before.day,
+        action,
+        logs: error ? [] : newLogEntries(before.log, after.log),
+      };
+      if (error) step.error = error;
+      if (!error && action.type === 'chooseEventOption' && before.pendingEvent) {
+        const view = getEventView({ run: structuredClone(before), content });
+        if (view) {
+          step.event = {
+            id: view.eventId,
+            title: view.title,
+            text: view.text,
+            choices: view.choices,
+            picked: action.choiceId,
+            result: after.pendingEvent?.result?.text,
+          };
+        }
+      }
+      if (!error && after.day !== before.day) step.newDay = snapshot(after);
+      steps.push(step);
+    },
+  };
+}
+
+export function replayRun(content: Content, opts: ReplayOptions): Replay {
+  const rec = createReplayRecorder(content);
+  const result = simulateRun(content, { ...opts, observer: rec });
+  return { result, start: rec.getStart(), steps: rec.steps };
 }
 
 // ---------- 文本输出 ----------
@@ -263,6 +275,8 @@ export function formatReplay(
     out.push(`✗ 崩溃（${result.crash.stage}）: ${result.crash.message}`);
     if (result.crash.action) out.push(`  动作: ${result.crash.action}`);
     if (result.crash.stack) out.push(...result.crash.stack.split('\n').map((l) => `  ${l}`));
+  } else if (result.ending === 'ongoing') {
+    out.push(`═ 还没有结束（第 ${result.days} 天），幸存 ${result.survivors} 人`);
   } else if (result.ending === 'timeout') {
     out.push(`═ 超时（到第 ${result.days} 天仍未结束），幸存 ${result.survivors} 人`);
   } else if (result.ending === 'stuck') {

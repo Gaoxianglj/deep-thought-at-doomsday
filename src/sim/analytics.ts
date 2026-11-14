@@ -57,6 +57,8 @@ export interface RunAnalytics {
   expeditions: { locationId: string; outcome: ExpeditionOutcome }[];
   /** 键 = `<eventId>/<choiceId>` */
   choices: Record<string, ChoiceCount>;
+  /** 本局依次出现的事件 id（含事件链与队列事件） */
+  eventSeq: string[];
 }
 
 interface ActiveExp {
@@ -95,6 +97,7 @@ export class Recorder {
     departures: [],
     expeditions: [],
     choices: {},
+    eventSeq: [],
   };
   private readonly tagItems: Record<string, string[]> = {};
 
@@ -110,6 +113,7 @@ export class Recorder {
 
   start(run: RunState): void {
     this.sampleDay(run);
+    if (run.pendingEvent) this.analytics.eventSeq.push(run.pendingEvent.eventId);
   }
 
   step(info: StepInfo): void {
@@ -119,6 +123,9 @@ export class Recorder {
     this.recordDeaths(before, after, action, exp);
     this.recordExpeditions(before, after, exp);
     if (action.type === 'chooseEventOption') this.recordChoices(before, action.choiceId);
+    if ((after.counters.events ?? 0) > (before.counters.events ?? 0) && after.pendingEvent) {
+      this.analytics.eventSeq.push(after.pendingEvent.eventId);
+    }
     this.sampleDay(after);
   }
 
@@ -253,6 +260,21 @@ export interface AnalyticsSummary {
   timeline: TimelinePoint[];
   expeditions: ExpeditionRow[];
   choices: ChoiceRow[];
+  diversity: Diversity;
+}
+
+/** 跨局多样性：玩家重复玩时会不会觉得"每局都一样" */
+export interface Diversity {
+  /** 事件分布的归一化香农熵（0–1；1 = 各事件出现次数完全均匀） */
+  eventEntropy: number;
+  /** 局间两两"出现过的事件集合"的平均 Jaccard 相似度（0–1；越高越雷同；抽样前 100 局） */
+  meanJaccard: number;
+  /** 开场（前 OPENING_LEN 个事件）的多样性 */
+  openings: { length: number; distinct: number; runs: number; topShare: number };
+  /** 单局里出现次数最多的那个事件的平均次数；以及场均出现最多的事件 */
+  repeat: { meanMax: number; worstEventId?: string; worstPerRun: number };
+  /** 结局、天数、事件序列都完全相同的局所占比例 */
+  duplicateRunRate: number;
 }
 
 function deathKey(d: DeathRecord): string {
@@ -289,10 +311,83 @@ function deathLabel(content: Content, d: DeathRecord): string {
   return parts.join(' · ');
 }
 
+const OPENING_LEN = 3;
+const JACCARD_SAMPLE = 100;
+
+export function computeDiversity(runs: RunAnalytics[], outcomes: string[] = []): Diversity {
+  const n = runs.length;
+  // 事件分布熵
+  const total = new Map<string, number>();
+  for (const r of runs) for (const id of r.eventSeq) total.set(id, (total.get(id) ?? 0) + 1);
+  const sum = [...total.values()].reduce((a, b) => a + b, 0);
+  let entropy = 0;
+  if (total.size > 1 && sum > 0) {
+    for (const c of total.values()) entropy -= (c / sum) * Math.log(c / sum);
+    entropy /= Math.log(total.size);
+  }
+  // 局间相似度
+  const sets = runs.slice(0, JACCARD_SAMPLE).map((r) => new Set(r.eventSeq));
+  let jac = 0;
+  let pairs = 0;
+  for (let i = 0; i < sets.length; i++) {
+    for (let j = i + 1; j < sets.length; j++) {
+      const a = sets[i];
+      const b = sets[j];
+      if (!a.size && !b.size) continue;
+      let inter = 0;
+      for (const x of a) if (b.has(x)) inter++;
+      jac += inter / (a.size + b.size - inter);
+      pairs++;
+    }
+  }
+  // 开场
+  const openingCount = new Map<string, number>();
+  for (const r of runs) {
+    const key = r.eventSeq.slice(0, OPENING_LEN).join('>');
+    openingCount.set(key, (openingCount.get(key) ?? 0) + 1);
+  }
+  // 重复
+  let maxSum = 0;
+  for (const r of runs) {
+    const c = new Map<string, number>();
+    for (const id of r.eventSeq) c.set(id, (c.get(id) ?? 0) + 1);
+    maxSum += Math.max(0, ...c.values());
+  }
+  let worstId: string | undefined;
+  let worst = 0;
+  for (const [id, c] of total) {
+    if (c / Math.max(n, 1) > worst) {
+      worst = c / Math.max(n, 1);
+      worstId = id;
+    }
+  }
+  // 完全相同的局
+  const seen = new Map<string, number>();
+  runs.forEach((r, i) => {
+    const key = `${outcomes[i] ?? ''}|${r.eventSeq.join('>')}`;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  });
+  const dup = [...seen.values()].filter((c) => c > 1).reduce((a, b) => a + b, 0);
+  return {
+    eventEntropy: entropy,
+    meanJaccard: pairs ? jac / pairs : 0,
+    openings: {
+      length: OPENING_LEN,
+      distinct: openingCount.size,
+      runs: n,
+      topShare: n ? Math.max(0, ...openingCount.values()) / n : 0,
+    },
+    repeat: { meanMax: n ? maxSum / n : 0, worstEventId: worstId, worstPerRun: worst },
+    duplicateRunRate: n ? dup / n : 0,
+  };
+}
+
 export function aggregateAnalytics(
   content: Content,
   runs: RunAnalytics[],
   maxDays = Infinity,
+  /** 与 runs 一一对应的"结局@天数"，用于判断两局是否完全相同 */
+  outcomes: string[] = [],
 ): AnalyticsSummary {
   const n = runs.length;
 
@@ -390,6 +485,7 @@ export function aggregateAnalytics(
     timeline,
     expeditions,
     choices,
+    diversity: computeDiversity(runs, outcomes),
   };
 }
 
@@ -483,6 +579,19 @@ export function formatAnalytics(
       ),
     );
   }
+
+  // 多样性
+  const dv = a.diversity;
+  out.push('', '多样性（跨局）');
+  out.push(
+    `  事件分布熵 ${dv.eventEntropy.toFixed(2)}（1 = 各事件均匀出现）；局间事件集合平均相似度 ${dv.meanJaccard.toFixed(2)}（越低越多样）`,
+    `  开场前 ${dv.openings.length} 个事件：${dv.openings.distinct} 种不同序列 / ${dv.openings.runs} 局，最常见的占 ${pct(dv.openings.topShare, 0)}`,
+    `  单局内最频繁事件平均出现 ${dv.repeat.meanMax.toFixed(1)} 次` +
+      (dv.repeat.worstEventId
+        ? `；场均最多的是「${content.events.get(dv.repeat.worstEventId)?.title ?? dv.repeat.worstEventId}」${dv.repeat.worstPerRun.toFixed(1)} 次`
+        : ''),
+    `  结局、天数、事件序列都相同的局: ${pct(dv.duplicateRunRate)}`,
+  );
 
   // 事件选项
   const evTitle = (id: string) => content.events.get(id)?.title ?? id;

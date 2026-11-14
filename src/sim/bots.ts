@@ -12,6 +12,9 @@ import {
   type ItemDef,
 } from '../engine';
 
+/** 每局一份、由 simulateRun 创建并传给 setup / act 的 bot 私有记忆（bot 自己不得持有跨局的全局状态） */
+export type BotMemory = Record<string, unknown>;
+
 export interface Bot {
   name: string;
   /** 开局选择：返回 party 与 items（必须通过 validateSetup） */
@@ -21,9 +24,10 @@ export interface Bot {
     difficultyId: string,
     unlocked: string[],
     rng: () => number,
+    mem?: BotMemory,
   ): { party: string[]; items: Record<string, number> };
   /** 返回本次要执行的一个动作；plan 阶段做完想做的事后返回 { type: 'endDay' } */
-  act(env: Env, rng: () => number): Action;
+  act(env: Env, rng: () => number, mem?: BotMemory): Action;
 }
 
 // ---------- 工具函数 ----------
@@ -202,16 +206,108 @@ export const randomBot: Bot = {
   },
 };
 
+// ---------- fuzzBot ----------
+
+/** 引擎应当拒绝（返回错误码）的"类型合法但语义非法"的动作。只用数据里的 id 与固定的假 id，不写具体内容。 */
+function illegalAction(env: Env, rng: () => number): Action {
+  const { run, content } = env;
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+  const anyChar = pick([...run.party, 'no_such_char'], rng)!;
+  const deadChar = pick(
+    run.party.filter((id) => run.characters[id]?.where !== 'shelter'),
+    rng,
+  );
+  const anyItem = pick([...ids(content.db.items), 'no_such_item'], rng)!;
+  const anyTag = pick([...content.config.rationTags, 'no_such_tag'], rng)!;
+  const anyLoc = pick([...ids(content.db.locations), 'no_such_location'], rng)!;
+  const charId = pick([anyChar, deadChar ?? anyChar], rng)!;
+  const carry = Array.from({ length: Math.floor(rng() * 4) }, () =>
+    pick([...ids(content.db.items), 'no_such_item'], rng)!,
+  );
+
+  const kinds: Action[] = [
+    { type: 'setRation', charId, tag: anyTag, itemId: pick([anyItem, null], rng)! },
+    { type: 'useItem', itemId: anyItem, charId },
+    { type: 'planExpedition', charId, locationId: anyLoc, carry },
+    { type: 'planExpedition', charId, locationId: anyLoc, carry, vehicleId: anyItem },
+    { type: 'cancelExpedition' },
+    { type: 'endDay' },
+    { type: 'continueEvent' },
+    { type: 'chooseEventOption', choiceId: 'no_such_choice' },
+  ];
+  // 事件阶段里尽量发"计划阶段"的动作，计划阶段里尽量发"事件阶段"的动作，凑出错阶段的情形
+  if (run.phase === 'plan' && rng() < 0.4) {
+    return pick(kinds.slice(6), rng)!;
+  }
+  if (run.phase === 'event' && rng() < 0.6) {
+    return pick(kinds.slice(0, 6), rng)!;
+  }
+  return pick(kinds, rng)!;
+}
+
+/**
+ * 模糊测试 bot：约 35% 的动作是非法动作（错阶段、不存在 / 已死亡 / 外出中的角色、
+ * 错配的物品与标签、越界的携带……），其余照 randomBot 正常玩，保证对局能推进。
+ * 用来检查引擎：不抛异常、只返回错误码、被拒绝时状态不变。
+ */
+export const fuzzBot: Bot = {
+  name: 'fuzz',
+  setup: (content, mapId, difficultyId, unlocked, rng) =>
+    randomBot.setup(content, mapId, difficultyId, unlocked, rng),
+  act(env, rng, mem) {
+    if (rng() < 0.35) return illegalAction(env, rng);
+    return randomBot.act(env, rng, mem);
+  },
+};
+
 // ---------- sensibleBot ----------
 
-/** 每个配给标签库存可支撑的人天数低于此值时考虑外出 */
-const LOW_SUPPLY_DAYS = 3;
-/** 开局留给工具的点数比例 */
-const TOOL_RESERVE = 0.55;
-/** 队员花费不超过总点数的这个比例 */
-const PARTY_BUDGET = 0.4;
-/** 物资充足时，外出者的整体状态须不低于此值（0-1） */
-const EXPLORE_MIN_WELLBEING = 0.5;
+/**
+ * 策略参数。同一套决策逻辑，不同参数 = 不同"风格"的玩家，用来量难度的上下界。
+ * 所有参数都与具体内容无关。
+ */
+export interface Policy {
+  /** 队员花费不超过总点数的这个比例 */
+  partyBudget: number;
+  /** 开局留给工具的点数比例 */
+  toolReserve: number;
+  /** 每个配给标签库存可支撑的人天数低于此值时视为"物资告急"，会外出补给 */
+  lowSupplyDays: number;
+  /** 物资充足时，外出者的整体状态须不低于此值（0-1） */
+  exploreMinWellbeing: number;
+  /** 物资充足时是否也出门探索（false = 只在告急时外出） */
+  exploreWhenSafe: boolean;
+  /** 物资充足时探索，外出后庇护所里至少要留的人数 */
+  exploreMinHome: number;
+  /** 选地点时对危险的厌恶：得分 = 配给收益 / (1 + danger × dangerWeight) */
+  dangerWeight: number;
+}
+
+export const DEFAULT_POLICY: Policy = {
+  partyBudget: 0.4,
+  toolReserve: 0.55,
+  lowSupplyDays: 3,
+  exploreMinWellbeing: 0.5,
+  exploreWhenSafe: true,
+  exploreMinHome: 1,
+  dangerWeight: 4,
+};
+
+/** 各风格的预设（相对 DEFAULT_POLICY 的差异） */
+export const POLICY_PRESETS: Record<string, Partial<Policy>> = {
+  /** 默认：稳健，物资告急就外出，否则轮流探索 */
+  sensible: {},
+  /** 龟缩：只在物资告急时才出门，且尽量挑安全的地方 */
+  turtle: { exploreWhenSafe: false, lowSupplyDays: 2, dangerWeight: 8 },
+  /** 激进：频繁出门，不太在乎危险和身体状态，少买工具 */
+  explorer: {
+    lowSupplyDays: 6,
+    exploreMinWellbeing: 0.2,
+    exploreMinHome: 0,
+    dangerWeight: 0.5,
+    toolReserve: 0.35,
+  },
+};
 
 function itemValuePerCost(content: Content, item: ItemDef, tag: string): number {
   const ts = tagStat(content, tag);
@@ -254,26 +350,21 @@ function desiredRations(env: Env): Record<string, Record<string, string>> {
   return want;
 }
 
-function supplyLow(env: Env): boolean {
+function supplyLow(env: Env, lowSupplyDays: number): boolean {
   const { content, run } = env;
   const people = Math.max(1, shelterIds(run).length);
   for (const tag of content.config.rationTags) {
     if (!tagStat(content, tag)) continue;
     let count = 0;
     for (const i of content.db.items) if (i.tags.includes(tag)) count += run.inventory[i.id] ?? 0;
-    if (count < LOW_SUPPLY_DAYS * people) return true;
+    if (count < lowSupplyDays * people) return true;
   }
   return false;
 }
 
-/** bot 的内部记忆：每次 setup（以及种子变化）时重置，保证同种子可复现 */
-const memory: { seed: string; visits: Record<string, number> } = { seed: '', visits: {} };
-
-function syncMemory(seed: string): void {
-  if (memory.seed !== seed) {
-    memory.seed = seed;
-    memory.visits = {};
-  }
+/** 策略 bot 的每局记忆：各地点已去过几次 */
+function visitsOf(mem: BotMemory): Record<string, number> {
+  return ((mem.visits as Record<string, number> | undefined) ??= {}) as Record<string, number>;
 }
 
 /** 递归收集条件里出现的 hasItem / carrying 物品 id */
@@ -397,154 +488,214 @@ function bestChoice(env: Env, enabled: string[]): string | undefined {
   return best;
 }
 
-export const sensibleBot: Bot = {
-  name: 'sensible',
+/** 用一套策略参数造一个 bot */
+export function makePolicyBot(name: string, overrides: Partial<Policy> = {}): Bot {
+  const policy: Policy = { ...DEFAULT_POLICY, ...overrides };
+  return {
+    name,
+    setup: (content, mapId, difficultyId, unlocked, rng) =>
+      policySetup(policy, content, mapId, difficultyId, unlocked, rng),
+    act: (env, _rng, mem = {}) => policyAct(policy, env, mem),
+  };
+}
 
-  setup(content, mapId, difficultyId, unlocked, rng) {
-    memory.seed = '';
-    memory.visits = {};
-    const map = content.maps.get(mapId);
-    const diff = content.difficulties.get(difficultyId);
-    if (!map || !diff) return { party: [], items: {} };
-    const budget = diff.points;
-    const costOf = (id: string) => content.characters.get(id)?.cost ?? 0;
+function policySetup(
+  policy: Policy,
+  content: Content,
+  mapId: string,
+  difficultyId: string,
+  unlocked: string[],
+  rng: () => number,
+): { party: string[]; items: Record<string, number> } {
+  const map = content.maps.get(mapId);
+  const diff = content.difficulties.get(difficultyId);
+  if (!map || !diff) return { party: [], items: {} };
+  const budget = diff.points;
+  const costOf = (id: string) => content.characters.get(id)?.cost ?? 0;
 
-    // 队伍：随机顺序，在预算比例内尽量招满，至少满足最小人数
-    const pool = shuffle(
-      unlocked.filter((id) => content.characters.has(id)),
-      rng,
+  // 队伍：随机顺序，在预算比例内尽量招满，至少满足最小人数
+  const pool = shuffle(
+    unlocked.filter((id) => content.characters.has(id)),
+    rng,
+  );
+  const party: string[] = [];
+  let spent = 0;
+  for (const id of pool) {
+    if (party.length >= map.partySize.max) break;
+    if (spent + costOf(id) <= budget * policy.partyBudget) {
+      party.push(id);
+      spent += costOf(id);
+    }
+  }
+  for (const id of [...pool].sort((a, b) => costOf(a) - costOf(b))) {
+    if (party.length >= map.partySize.min) break;
+    if (!party.includes(id)) {
+      party.push(id);
+      spent += costOf(id);
+    }
+  }
+
+  // 物品
+  const items: Record<string, number> = {};
+  let points = budget - spent;
+  const allowed = (i: ItemDef) =>
+    i.cost !== undefined && map.startingPool.includes(i.id) && content.items.has(i.id);
+  const canBuy = (i: ItemDef) =>
+    (i.cost ?? 0) <= points && (i.maxAtStart === undefined || (items[i.id] ?? 0) < i.maxAtStart);
+  const buy = (i: ItemDef) => {
+    items[i.id] = (items[i.id] ?? 0) + 1;
+    points -= i.cost ?? 0;
+  };
+  const rationTags = content.config.rationTags;
+  const isRation = (i: ItemDef) => i.tags.some((t) => rationTags.includes(t));
+
+  // 工具：先留预算，每种买 1 个（按 cost 从低到高），其余点数买食物和水
+  const enablers = enablerItems(content);
+  let toolBudget = Math.floor(points * policy.toolReserve);
+  const tools = content.db.items
+    .filter((i) => allowed(i) && !isRation(i))
+    .sort(
+      (a, b) =>
+        Number(enablers.has(b.id)) - Number(enablers.has(a.id)) || (a.cost ?? 0) - (b.cost ?? 0),
     );
-    const party: string[] = [];
-    let spent = 0;
-    for (const id of pool) {
-      if (party.length >= map.partySize.max) break;
-      if (spent + costOf(id) <= budget * PARTY_BUDGET) {
-        party.push(id);
-        spent += costOf(id);
+  for (const t of tools) {
+    if ((t.cost ?? 0) <= toolBudget && canBuy(t)) {
+      buy(t);
+      toolBudget -= t.cost ?? 0;
+    }
+  }
+
+  // 食物与水：每个标签挑性价比最高的，轮流买
+  const bestPerTag = rationTags
+    .map((tag) =>
+      content.db.items
+        .filter((i) => allowed(i) && i.tags.includes(tag))
+        .sort((a, b) => itemValuePerCost(content, b, tag) - itemValuePerCost(content, a, tag)),
+    )
+    .filter((l) => l.length);
+  for (let guard = 0; guard < 5000; guard++) {
+    let bought = false;
+    for (const list of bestPerTag) {
+      const item = list.find(canBuy);
+      if (item) {
+        buy(item);
+        bought = true;
       }
     }
-    for (const id of [...pool].sort((a, b) => costOf(a) - costOf(b))) {
-      if (party.length >= map.partySize.min) break;
-      if (!party.includes(id)) {
-        party.push(id);
-        spent += costOf(id);
-      }
-    }
+    if (!bought) break;
+  }
+  return { party, items };
+}
 
-    // 物品
-    const items: Record<string, number> = {};
-    let points = budget - spent;
-    const allowed = (i: ItemDef) =>
-      i.cost !== undefined && map.startingPool.includes(i.id) && content.items.has(i.id);
-    const canBuy = (i: ItemDef) =>
-      (i.cost ?? 0) <= points && (i.maxAtStart === undefined || (items[i.id] ?? 0) < i.maxAtStart);
-    const buy = (i: ItemDef) => {
-      items[i.id] = (items[i.id] ?? 0) + 1;
-      points -= i.cost ?? 0;
-    };
-    const rationTags = content.config.rationTags;
-    const isRation = (i: ItemDef) => i.tags.some((t) => rationTags.includes(t));
+function policyAct(policy: Policy, env: Env, mem: BotMemory): Action {
+  const ev = eventAct(env, (enabled) => bestChoice(env, enabled));
+  if (ev) return ev;
+  const { run, content } = env;
+  const chars = shelterIds(run);
 
-    // 工具：先留预算，每种买 1 个（按 cost 从低到高），其余点数买食物和水
-    const enablers = enablerItems(content);
-    let toolBudget = Math.floor(points * TOOL_RESERVE);
-    const tools = content.db.items
-      .filter((i) => allowed(i) && !isRation(i))
-      .sort(
-        (a, b) =>
-          Number(enablers.has(b.id)) - Number(enablers.has(a.id)) || (a.cost ?? 0) - (b.cost ?? 0),
-      );
-    for (const t of tools) {
-      if ((t.cost ?? 0) <= toolBudget && canBuy(t)) {
-        buy(t);
-        toolBudget -= t.cost ?? 0;
-      }
-    }
-
-    // 食物与水：每个标签挑性价比最高的，轮流买
-    const bestPerTag = rationTags
-      .map((tag) =>
-        content.db.items
-          .filter((i) => allowed(i) && i.tags.includes(tag))
-          .sort((a, b) => itemValuePerCost(content, b, tag) - itemValuePerCost(content, a, tag)),
-      )
-      .filter((l) => l.length);
-    for (let guard = 0; guard < 5000; guard++) {
-      let bought = false;
-      for (const list of bestPerTag) {
-        const item = list.find(canBuy);
-        if (item) {
-          buy(item);
-          bought = true;
-        }
-      }
-      if (!bought) break;
-    }
-    return { party, items };
-  },
-
-  act(env) {
-    syncMemory(env.run.seed);
-    const ev = eventAct(env, (enabled) => bestChoice(env, enabled));
-    if (ev) return ev;
-    const { run, content } = env;
-    const chars = shelterIds(run);
-
-    // 1. 治疗：有 manualUse 物品且能去掉某人身上的状态
-    for (const item of content.db.items) {
-      if (!item.manualUse || (run.inventory[item.id] ?? 0) < 1) continue;
-      const cures = new Set<string>();
-      walkEffects(item.onUse, (e) => {
-        if ('removeStatus' in e) cures.add(e.removeStatus);
-      });
-      for (const id of chars) {
-        if (run.characters[id].statuses.some((s) => cures.has(s.id))) {
-          return { type: 'useItem', itemId: item.id, charId: id };
-        }
-      }
-    }
-
-    // 2. 配给
-    const want = desiredRations(env);
+  // 1. 治疗：有 manualUse 物品且能去掉某人身上的状态
+  for (const item of content.db.items) {
+    if (!item.manualUse || (run.inventory[item.id] ?? 0) < 1) continue;
+    const cures = new Set<string>();
+    walkEffects(item.onUse, (e) => {
+      if ('removeStatus' in e) cures.add(e.removeStatus);
+    });
     for (const id of chars) {
-      for (const tag of content.config.rationTags) {
-        const target = want[id]?.[tag];
-        if (target && run.plan.rations[id]?.[tag] !== target) {
-          return { type: 'setRation', charId: id, tag, itemId: target };
-        }
+      if (run.characters[id].statuses.some((s) => cures.has(s.id))) {
+        return { type: 'useItem', itemId: item.id, charId: id };
       }
     }
+  }
 
-    // 3. 外出：补给不足时去能带回配给的地方；否则（有健康的人时）轮流探索各地点
-    if (!run.expedition && !run.plan.expedition && chars.length) {
-      const low = supplyLow(env);
-      const ranked = [...chars].sort((a, b) => wellbeing(env, b) - wellbeing(env, a));
-      for (const charId of ranked) {
-        if (!low && (chars.length < 2 || wellbeing(env, charId) < EXPLORE_MIN_WELLBEING)) continue;
-        const locs = legalLocations(env, charId);
-        if (!locs.length) continue;
-        const visits = (id: string) => memory.visits[id] ?? 0;
-        const pickLoc = low
-          ? locs.sort(
-              (a, b) =>
-                rationLootValue(content, b.id) / (1 + b.danger * 4) -
-                  rationLootValue(content, a.id) / (1 + a.danger * 4) ||
-                visits(a.id) - visits(b.id),
-            )[0]
-          : locs.sort(
-              (a, b) =>
-                visits(a.id) - visits(b.id) || a.danger - b.danger || a.distance - b.distance,
-            )[0];
-        const plan = buildPlan(env, charId, pickLoc.id);
-        if (!plan) continue;
-        plan.carry = carryFor(env, pickLoc.id);
-        if (validateExpeditionPlan(env, plan)) continue;
-        memory.visits[pickLoc.id] = visits(pickLoc.id) + 1;
-        return { type: 'planExpedition', ...plan };
+  // 2. 配给
+  const want = desiredRations(env);
+  for (const id of chars) {
+    for (const tag of content.config.rationTags) {
+      const target = want[id]?.[tag];
+      if (target && run.plan.rations[id]?.[tag] !== target) {
+        return { type: 'setRation', charId: id, tag, itemId: target };
       }
     }
-    return { type: 'endDay' };
-  },
+  }
+
+  // 3. 外出：补给不足时去能带回配给的地方；否则（有健康的人时）轮流探索各地点
+  if (!run.expedition && !run.plan.expedition && chars.length) {
+    const low = supplyLow(env, policy.lowSupplyDays);
+    const ranked = [...chars].sort((a, b) => wellbeing(env, b) - wellbeing(env, a));
+    for (const charId of ranked) {
+      if (
+        !low &&
+        (!policy.exploreWhenSafe ||
+          chars.length < policy.exploreMinHome + 1 ||
+          wellbeing(env, charId) < policy.exploreMinWellbeing)
+      )
+        continue;
+      const locs = legalLocations(env, charId);
+      if (!locs.length) continue;
+      const seen = visitsOf(mem);
+      const visits = (id: string) => seen[id] ?? 0;
+      const pickLoc = low
+        ? locs.sort(
+            (a, b) =>
+              rationLootValue(content, b.id) / (1 + b.danger * policy.dangerWeight) -
+                rationLootValue(content, a.id) / (1 + a.danger * policy.dangerWeight) ||
+              visits(a.id) - visits(b.id),
+          )[0]
+        : locs.sort(
+            (a, b) => visits(a.id) - visits(b.id) || a.danger - b.danger || a.distance - b.distance,
+          )[0];
+      const plan = buildPlan(env, charId, pickLoc.id);
+      if (!plan) continue;
+      plan.carry = carryFor(env, pickLoc.id);
+      if (validateExpeditionPlan(env, plan)) continue;
+      seen[pickLoc.id] = visits(pickLoc.id) + 1;
+      return { type: 'planExpedition', ...plan };
+    }
+  }
+  return { type: 'endDay' };
+}
+
+export const sensibleBot: Bot = makePolicyBot('sensible', POLICY_PRESETS.sensible);
+export const turtleBot: Bot = makePolicyBot('turtle', POLICY_PRESETS.turtle);
+export const explorerBot: Bot = makePolicyBot('explorer', POLICY_PRESETS.explorer);
+
+export const BOTS: Record<string, Bot> = {
+  sensible: sensibleBot,
+  turtle: turtleBot,
+  explorer: explorerBot,
+  random: randomBot,
+  fuzz: fuzzBot,
 };
 
-export const BOTS: Record<string, Bot> = { sensible: sensibleBot, random: randomBot };
+const POLICY_KEYS = Object.keys(DEFAULT_POLICY) as (keyof Policy)[];
+
+/**
+ * 把 bot 描述串解析成 bot：`sensible`，或带参数覆盖的 `sensible:toolReserve=0.3,dangerWeight=2`。
+ * 只有策略型 bot（sensible / turtle / explorer）支持参数覆盖。返回 string 表示错误信息。
+ */
+export function resolveBot(spec: string): Bot | string {
+  const [name, rest] = spec.split(':', 2);
+  const preset = POLICY_PRESETS[name];
+  if (rest === undefined)
+    return BOTS[name] ?? `未知策略: ${name}（可选: ${Object.keys(BOTS).join('、')}）`;
+  if (!preset)
+    return `只有策略型 bot（${Object.keys(POLICY_PRESETS).join('、')}）支持参数覆盖: ${name}`;
+  const overrides: Partial<Policy> = { ...preset };
+  for (const pair of rest.split(',').filter(Boolean)) {
+    const [key, raw] = pair.split('=', 2);
+    if (!POLICY_KEYS.includes(key as keyof Policy))
+      return `未知策略参数: ${key}（可选: ${POLICY_KEYS.join('、')}）`;
+    const value = key === 'exploreWhenSafe' ? raw === 'true' : Number(raw);
+    if (typeof value === 'number' && !Number.isFinite(value)) return `参数 ${key} 需要数字: ${raw}`;
+    (overrides as Record<string, number | boolean>)[key] = value;
+  }
+  return makePolicyBot(spec, overrides);
+}
+
+/** 当前策略参数 + 覆盖项 → 描述串（resolveBot 的逆运算） */
+export function policySpec(base: string, overrides: Partial<Policy>): string {
+  const pairs = Object.entries(overrides).map(
+    ([k, v]) => `${k}=${typeof v === 'number' ? +v.toFixed(3) : v}`,
+  );
+  return pairs.length ? `${base}:${pairs.join(',')}` : base;
+}

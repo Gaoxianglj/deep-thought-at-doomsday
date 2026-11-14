@@ -13,7 +13,11 @@
     "format": "prettier --write .",
     "validate": "tsx scripts/validate-content.ts",
     "sim": "tsx scripts/simulate.ts",
-    "replay": "tsx scripts/replay.ts"
+    "replay": "tsx scripts/replay.ts",
+    "skill": "tsx scripts/skill.ts",
+    "compare": "tsx scripts/compare.ts",
+    "balance": "tsx scripts/balance.ts",
+    "play": "tsx scripts/play.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

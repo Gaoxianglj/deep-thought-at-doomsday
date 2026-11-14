@@ -1,14 +1,15 @@
 /** 回放一局：npm run replay -- --seed sim-12 --difficulty normal --bot sensible */
 import { buildContent } from '../src/engine';
 import { contentDB } from '../src/data/index';
-import { BOTS } from '../src/sim/bots';
+import { resolveBot } from '../src/sim/bots';
 import { formatReplay, replayRun } from '../src/sim/replay';
 
 const HELP = `用法: npm run replay -- --seed <种子> [选项]
   --seed <种子>       必填。批量模拟报告里的种子，如 sim-12（前缀-局序号）
   --map <id>          地图 id（默认第一个地图）
   --difficulty <id>   难度 id（默认第一个难度）
-  --bot <name>        策略: sensible | random（默认 sensible）
+  --bot <name>        策略: sensible | turtle | explorer | random（默认 sensible）；
+                      策略型可带参数: sensible:toolReserve=0.3,dangerWeight=2
   --unlock-all        所有角色视为已解锁（要与产生该种子的模拟一致）
   --max-days <n>      每局最多天数（默认 200，要与产生该种子的模拟一致）
   --from <天>         只打印从这一天开始的内容
@@ -53,8 +54,9 @@ const int = (key: string): number | undefined => {
 const content = buildContent(contentDB);
 if (!content.db.maps.length || !content.db.characters.length) fail('内容为空，无法回放。');
 const botName = values['--bot'] ?? 'sensible';
-const bot = BOTS[botName];
-if (!bot) fail(`未知策略: ${botName}（可选: ${Object.keys(BOTS).join('、')}）`);
+const resolved = resolveBot(botName);
+if (typeof resolved === 'string') fail(resolved);
+const bot = resolved;
 const mapId = values['--map'] ?? content.db.maps[0].id;
 if (!content.maps.has(mapId))
   fail(`未知地图: ${mapId}（可选: ${[...content.maps.keys()].join('、')}）`);
