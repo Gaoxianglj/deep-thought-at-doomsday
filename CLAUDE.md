@@ -119,22 +119,22 @@ sim → engine        validation → engine
 
 ### 4.3 效果 Effect
 
-| 写法                                              | 含义                                                                                                                                                         |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `{ stat, of, add?, set? }`                        | 改属性，自动钳制到 `[min, max]`；`add` 与 `set` 至少一个（校验）；**正数 add 会乘 `scope.gainMul`**（物品使用时的 `item.<tag>.useEffect`）                   |
-| `{ addStatus, of, duration?, chance? }`           | 施加状态（已有则刷新较长的持续时间）；成功概率 = 修正后的 `status.<id>.gainChance`（基础值为 `chance ?? 1`）；`duration` 优先于状态定义的 duration           |
-| `{ removeStatus, of }`                            | 移除状态（触发 `onExit`）                                                                                                                                    |
-| `{ item, add }`                                   | 库存增减，不低于 0；不存在的物品 id 静默忽略                                                                                                                 |
-| `{ loseRandomItem: { tag?, count? } }`            | 随机丢 `count`（默认 1）件，按库存数量加权；**把丢失物品名写入 `{lost}`**，供之后同一效果列表里的 `log` 与事件结果文案使用                                   |
-| `{ setFlag, value }` / `{ addFlag, add }`         | 设置标记 / 数字标记累加（不存在当 0）                                                                                                                        |
-| `{ joinParty }`                                   | 角色加入本局（已在队伍或曾经在则忽略，不复活）                                                                                                               |
-| `{ leaveParty, reason: 'dead' \| 'gone', text? }` | 目标离队；`text` 是日志模板（只有 `{self}` 和角色/物品变量，运行时**没有** `{lost}`）；不写 `text` 且 `dead` 时用 `config.texts.death`；外出者离队则外出作废 |
-| `{ unlock }`                                      | 局外解锁角色（写入 `run.unlocked` 与 `newUnlocks`，存档层并入档案）                                                                                          |
-| `{ queueEvent, delay? }`                          | 把事件排到 `当前天 + delay`（默认 0）的清晨；沿用当前 `self` 与 roles；**排队事件不检查其 `when`**                                                           |
-| `{ ending }`                                      | 触发结局（已有结局则忽略）；`phase` 在待处理事件处理完后变 `ended`                                                                                           |
-| `{ log, kind? }`                                  | 写一条日志（kind 默认 `info`），按文案模板渲染                                                                                                               |
-| `{ if, then, else? }`                             | 条件分支                                                                                                                                                     |
-| `{ random: [{ weight?, effects }] }`              | 按权重选一支执行（至少 1 支）                                                                                                                                |
+| 写法                                              | 含义                                                                                                                                                                                                                   |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{ stat, of, add?, set? }`                        | 改属性，自动钳制到 `[min, max]`；`add` 与 `set` 至少一个（校验）；**正数 add 会乘 `scope.gainMul`**（物品使用时的 `item.<tag>.useEffect`）                                                                             |
+| `{ addStatus, of, duration?, chance? }`           | 施加状态（已有则刷新较长的持续时间）；成功概率 = 修正后的 `status.<id>.gainChance`（基础值为 `chance ?? 1`）；`duration` 优先于状态定义的 duration；没过判定时写 `statusResisted` 日志（所以结果文案别断言"一定中招"） |
+| `{ removeStatus, of }`                            | 移除状态（触发 `onExit`）                                                                                                                                                                                              |
+| `{ item, add }`                                   | 库存增减，不低于 0；不存在的物品 id 静默忽略                                                                                                                                                                           |
+| `{ loseRandomItem: { tag?, count? } }`            | 随机丢 `count`（默认 1）件，按库存数量加权；**把丢失物品名写入 `{lost}`**，供之后同一效果列表里的 `log` 与事件结果文案使用                                                                                             |
+| `{ setFlag, value }` / `{ addFlag, add }`         | 设置标记 / 数字标记累加（不存在当 0）                                                                                                                                                                                  |
+| `{ joinParty }`                                   | 角色加入本局（已在队伍或曾经在则忽略，不复活）                                                                                                                                                                         |
+| `{ leaveParty, reason: 'dead' \| 'gone', text? }` | 目标离队；`text` 是日志模板（只有 `{self}` 和角色/物品变量，运行时**没有** `{lost}`）；不写 `text` 且 `dead` 时用 `config.texts.death`；外出者离队则外出作废                                                           |
+| `{ unlock }`                                      | 局外解锁角色（写入 `run.unlocked` 与 `newUnlocks`，存档层并入档案）                                                                                                                                                    |
+| `{ queueEvent, delay? }`                          | 把事件排到 `当前天 + delay`（默认 0）的清晨；沿用当前 `self` 与 roles；**排队事件不检查其 `when`**                                                                                                                     |
+| `{ ending }`                                      | 触发结局（已有结局则忽略）；`phase` 在待处理事件处理完后变 `ended`                                                                                                                                                     |
+| `{ log, kind? }`                                  | 写一条日志（kind 默认 `info`），按文案模板渲染                                                                                                                                                                         |
+| `{ if, then, else? }`                             | 条件分支                                                                                                                                                                                                               |
+| `{ random: [{ weight?, effects }] }`              | 按权重选一支执行（至少 1 支）                                                                                                                                                                                          |
 
 ### 4.4 规则 Rule 与修正 Modifier
 
@@ -194,7 +194,7 @@ sim → engine        validation → engine
 | `StatDef.deathText`                                | `{self}`                                                                                   |
 | `leaveParty.text`                                  | `{self}`、`{item:id}`、`{day}`                                                             |
 | `config.texts.death`                               | `{self}`                                                                                   |
-| `statusEnter` / `statusExit`                       | `{self}` `{status}`                                                                        |
+| `statusEnter` / `statusExit` / `statusResisted`    | `{self}` `{status}`                                                                        |
 | `rationMissing`                                    | `{self}` `{item}`                                                                          |
 | `expeditionDepart` / `Return` / `Injured` / `Lost` | `{self}` `{location}` `{loot}` `{lootCount}`（`Depart` 时 `{loot}` 为空）                  |
 | `expeditionCancelled`                              | `{self}` `{location}`                                                                      |

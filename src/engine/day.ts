@@ -30,6 +30,30 @@ export function consumeItemOn(env: Env, itemId: string, charId: string): boolean
   return true;
 }
 
+/**
+ * 手动使用物品会不会产生任何变化？在状态副本上试跑一次（副本带着同样的 rng，所以试跑结果
+ * 就是真实结果）：属性、状态、库存（不含被用掉的那件）、标记、队伍、事件队列、结局、日志都没变
+ * 就返回 false —— 例如对没生病的人用感冒药、对满血的人用急救包。
+ */
+export function useHasEffect(env: Env, itemId: string, charId: string): boolean {
+  const probe: Env = { ...env, run: structuredClone(env.run) };
+  consumeItemOn(probe, itemId, charId);
+  const view = (run: Env['run']) => {
+    const inventory = { ...run.inventory };
+    delete inventory[itemId];
+    return JSON.stringify([
+      run.characters,
+      inventory,
+      run.flags,
+      run.party,
+      run.eventQueue,
+      run.ending,
+      run.log.length,
+    ]);
+  };
+  return view(probe.run) !== view(env.run);
+}
+
 // ---------- 清晨 ----------
 function stepWeather(env: Env): void {
   const { run, content } = env;

@@ -9,6 +9,7 @@ export const config = {
     death: '{self} 倒下了，再也没能站起来。',
     statusEnter: '{self} 进入了「{status}」状态。',
     statusExit: '{self} 摆脱了「{status}」状态。',
+    statusResisted: '{self} 扛住了「{status}」，没有受到影响。',
     rationMissing: '{self} 想吃点东西，翻遍了仓库也没找到 {item}。',
     expeditionDepart: '{self} 背起包出发了，目的地：{location}。',
     expeditionReturn: '{self} 从 {location} 回来了，带回 {lootCount} 件东西。{loot}',

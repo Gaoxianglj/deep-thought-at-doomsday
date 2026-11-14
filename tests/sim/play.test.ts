@@ -19,6 +19,7 @@ const content = makeContent((db) => {
   for (const e of db.events) if (e.id === 'fever' || e.id === 'knock') e.weight = 1;
   db.config.tagNames = { food: '食物', water: '饮水' };
   db.locations[0].requiresHint = '先熬过几天';
+  for (const i of db.items) if (i.id === 'medkit') i.desc = '治疗生病并恢复健康。';
 });
 const setup: PlaySetup = {
   seed: 'play1',
@@ -130,7 +131,14 @@ describe('runCommand', () => {
   it('引擎拒绝时返回中文原因，局面不变', () => {
     const event = fresh();
     const r = runCommand(content, event, 'end', (c) => `拒绝:${c}`);
-    expect(r).toEqual({ error: '拒绝:notPlanPhase' });
+    expect(r).toEqual({ error: '拒绝:notPlanPhase（有事件在等你做选择：先 act choose <序号>）' });
+  });
+
+  it('选完事件、结果还没看完时提示 continue', () => {
+    const chosen = runCommand(content, fresh(), 'choose 1');
+    if ('error' in chosen) throw new Error(chosen.error);
+    const r = runCommand(content, chosen.run, 'end', (c) => `拒绝:${c}`);
+    expect(r).toEqual({ error: '拒绝:notPlanPhase（有事件结果还没看完：先 act continue）' });
   });
 
   it('合法命令返回新状态与动作', () => {
@@ -156,6 +164,10 @@ describe('describeState / describeStep', () => {
       content,
     ).state;
     expect(describeState(content, chosen)).toContain('continue');
+  });
+
+  it('库存里的物品附带说明', () => {
+    expect(describeState(content, fresh())).toContain('药箱: 治疗生病并恢复健康。');
   });
 
   it('计划阶段：配给提醒、用标签中文名、地点信息', () => {

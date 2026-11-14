@@ -152,6 +152,10 @@ export function describeState(content: Content, run: RunState): string {
   for (const id of run.party) out.push(charLine(content, run, id));
   const inv = Object.entries(run.inventory).filter(([, n]) => n > 0);
   out.push(`  库存: ${itemList(content, inv)}`);
+  for (const [id] of inv) {
+    const desc = content.items.get(id)?.desc;
+    if (desc) out.push(`    · ${content.items.get(id)?.name}: ${desc}`);
+  }
 
   if (run.phase === 'ended') {
     const ending = run.ending ? content.endings.get(run.ending.id) : undefined;
@@ -364,7 +368,15 @@ export function runCommand(
   const parsed = parseCommand(content, run, input);
   if (typeof parsed === 'string') return { error: parsed };
   const res = applyAction(run, parsed, content);
-  return res.error ? { error: errorText(res.error) } : { action: parsed, run: res.state };
+  if (!res.error) return { action: parsed, run: res.state };
+  // 有事件在等：提示先处理事件，而不是只说"现在不是安排计划的时候"
+  const hint =
+    res.error === 'notPlanPhase' && run.phase === 'event' && run.pendingEvent
+      ? run.pendingEvent.result
+        ? '（有事件结果还没看完：先 act continue）'
+        : '（有事件在等你做选择：先 act choose <序号>）'
+      : '';
+  return { error: errorText(res.error) + hint };
 }
 
 /** 开局点数花费（给 --auto 之外的手动配置显示用） */

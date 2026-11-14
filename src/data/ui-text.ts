@@ -278,6 +278,7 @@ export const uiText = {
     itemWrongTag: '这件物品不能用作这类配给。',
     itemMissing: '库存不足。',
     itemNotUsable: '这件物品不能直接使用。',
+    itemNoEffect: '现在用了也没有效果，先留着吧。',
     expeditionActive: '已经有人在外出了。',
     charBlocked: '这个角色当前的状态无法外出。',
     unknownLocation: '目的地不可用。',

@@ -88,7 +88,7 @@ export const cityCommonEvents = [
         outcomes: [
           {
             weight: 2,
-            text: '{self} 没能扛住，病倒了。',
+            text: '{self} 硬撑了一整天，脸色越来越差，看上去撑不了多久了。',
             effects: [{ addStatus: 'sick', of: 'self' }],
           },
           {

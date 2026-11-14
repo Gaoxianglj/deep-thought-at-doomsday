@@ -46,6 +46,11 @@ function applyOne(env: Env, scope: Scope, e: Effect): void {
     for (const id of resolveTargets(env, scope, e.of, 'effect')) {
       const p = getModifier(env, `status.${e.addStatus}.gainChance`, e.chance ?? 1, id);
       if (rollChance(run, p)) addStatus(env, id, e.addStatus, e.duration);
+      else {
+        // 没过概率判定要让玩家看得见，否则"文案说病了、状态栏却没有"会让人摸不着头脑
+        const name = content.statuses.get(e.addStatus)?.name ?? '';
+        sysLog(env, 'statusResisted', 'status', { self: id }, { status: name });
+      }
     }
     return;
   }

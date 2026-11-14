@@ -4,7 +4,7 @@
  */
 import type { Content } from './content';
 import { itemCount, type Env } from './context';
-import { consumeItemOn, endDay } from './day';
+import { consumeItemOn, endDay, useHasEffect } from './day';
 import { chooseEventOption, continueEvent } from './events';
 import { validateExpeditionPlan } from './expedition';
 import type { ExpeditionPlan, RunState } from './schema';
@@ -59,6 +59,8 @@ function dispatch(env: Env, a: Action): string | null {
       if (run.phase !== 'plan') return 'notPlanPhase';
       if (run.characters[a.charId]?.where !== 'shelter') return 'charUnavailable';
       if (!content.items.get(a.itemId)?.manualUse) return 'itemNotUsable';
+      if (itemCount(run, a.itemId) < 1) return 'itemMissing';
+      if (!useHasEffect(env, a.itemId, a.charId)) return 'itemNoEffect';
       return consumeItemOn(env, a.itemId, a.charId) ? null : 'itemMissing';
     }
     case 'planExpedition': {

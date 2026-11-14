@@ -64,6 +64,7 @@ const TEXT_VARS: Record<string, readonly string[]> = {
   death: [],
   statusEnter: ['status'],
   statusExit: ['status'],
+  statusResisted: ['status'],
   rationMissing: ['item'],
   expeditionDepart: ['location', 'loot', 'lootCount'],
   expeditionReturn: ['location', 'loot', 'lootCount'],

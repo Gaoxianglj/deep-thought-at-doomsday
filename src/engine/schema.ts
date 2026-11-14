@@ -437,7 +437,8 @@ export const ConfigSchema = z.strictObject({
 });
 /**
  * 引擎会用到的文案键及可用变量：
- * death {self} | statusEnter/statusExit {self} {status} | rationMissing {self} {item}
+ * death {self} | statusEnter/statusExit/statusResisted {self} {status} | rationMissing {self} {item}
+ * statusResisted：addStatus 效果的概率判定没过（含特性压低 gainChance）时写的日志
  * expeditionDepart/expeditionReturn/expeditionInjured/expeditionLost {self} {location} {loot} {lootCount}
  * expeditionCancelled {self} {location}（入夜时外出计划已不合法，例如携带物被吃掉）
  * weatherChange {weather}
@@ -446,6 +447,7 @@ export const ENGINE_TEXT_KEYS = [
   'death',
   'statusEnter',
   'statusExit',
+  'statusResisted',
   'rationMissing',
   'expeditionDepart',
   'expeditionReturn',

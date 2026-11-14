@@ -117,6 +117,19 @@ describe('规则与修正', () => {
     applyEffects(env, {}, [{ addStatus: 'sick', of: { id: 'alpha' } }]);
     expect(env.run.characters.alpha.statuses.map((s) => s.id)).toEqual(['sick']);
   });
+  it('状态没过概率判定时写 statusResisted 日志（有文案键才写）', () => {
+    const env = makeEnv({}, (db) => {
+      db.config.texts.statusResisted = '{self} 扛住了 {status}。';
+    });
+    env.run.characters.alpha.stats.food = 80; // alpha 吃饱时 sick 的 gainChance 为 0
+    applyEffects(env, {}, [{ addStatus: 'sick', of: { id: 'alpha' } }]);
+    expect(env.run.characters.alpha.statuses).toEqual([]);
+    expect(env.run.log.at(-1)?.text).toBe('阿尔法 扛住了 生病。');
+    const plain = makeEnv(); // 夹具默认没配该文案：不写日志
+    plain.run.characters.alpha.stats.food = 80;
+    applyEffects(plain, {}, [{ addStatus: 'sick', of: { id: 'alpha' } }]);
+    expect(plain.run.log).toEqual([]);
+  });
   it('self 修正只影响自己；难度与道具是全局来源', () => {
     const env = makeEnv({ difficultyId: 'hard', items: { spice: 1 } });
     applyEffects(env, {}, [{ addStatus: 'silly', of: { id: 'alpha' } }]);

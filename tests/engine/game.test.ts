@@ -126,6 +126,22 @@ describe('按天循环', () => {
     expect(env.run.characters.beta.statuses.map((s) => s.id)).toEqual(['hungry']); // 生病到期，同晚饿了
     expect(getArtState(env.run, env.content, 'beta')).toBe('normal');
   });
+  it('手动用药对没有效果的目标被拒绝，且不消耗物品', () => {
+    const env = makeEnv({ items: { medkit: 1 } });
+    env.run.characters.alpha.stats.hp = 100; // 满血、没生病：药箱什么也改变不了
+    const r = applyAction(
+      env.run,
+      { type: 'useItem', itemId: 'medkit', charId: 'alpha' },
+      env.content,
+    );
+    expect(r.error).toBe('itemNoEffect');
+    expect(r.state).toBe(env.run); // 被拒绝返回原对象
+    expect(env.run.inventory.medkit).toBe(1);
+    // 同一件药对有效目标仍可用
+    play(env, { type: 'useItem', itemId: 'medkit', charId: 'beta' });
+    expect(env.run.characters.beta.stats.hp).toBe(70);
+    expect(env.run.inventory.medkit ?? 0).toBe(0);
+  });
   it('标记满足即达成自救结局（优先级高于其他）', () => {
     const env = makeEnv();
     applyEffects(env, {}, [{ setFlag: 'generator', value: true }]);

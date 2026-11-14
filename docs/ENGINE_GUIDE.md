@@ -32,6 +32,7 @@ UI / sim:  applyAction(state, action, content)
                   chooseEventOption / continueEvent → events.ts ─┐
                   endDay → day.ts: NIGHT_STEPS → checkEndings → startDay: MORNING_STEPS → nextEvent
                   setRation / useItem(consumeItemOn) / planExpedition / cancelExpedition
+                    └ useItem 先在状态副本上试跑（useHasEffect），没有任何变化就拒绝 itemNoEffect、不耗物品
                 events / day / expedition ──→ applyEffects (effects.ts) ──→ checkDeaths
                                           └─→ getModifier / fireTrigger (rules.ts) ──→ evalCondition
              返回 { state: env.run } 或 { state: 原对象, error: '错误码' }
