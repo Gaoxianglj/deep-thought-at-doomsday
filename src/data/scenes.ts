@@ -34,16 +34,15 @@ export const scenes = [
       gas_mask: { x: 13.5, y: 61.5, w: 5 },
       flashlight: { x: 19, y: 61.5, w: 4.5 },
       crowbar: { x: 24.5, y: 61.5, w: 5.5 },
-      duct_tape: { x: 29.5, y: 61.5, w: 3.2 },
       bug_spray: { x: 33.2, y: 61.5, w: 2.6 },
       lighter: { x: 36.6, y: 61.5, w: 2 },
-      // 木架右侧地上：一卷绳索
-      rope: { x: 42, y: 68, w: 5 },
+      // 桌子上方墙上挂着的绳索
+      rope: { x: 53, y: 33, w: 5 },
       // 桌面
-      playing_cards: { x: 59, y: 45.5, w: 3.5 },
-      radio: { x: 64.5, y: 45.5, w: 6.5 },
-      // 舱门旁的地上
-      flare: { x: 69, y: 70, w: 2.4 },
+      flare: { x: 45.6, y: 45.5, w: 2.2 },
+      duct_tape: { x: 57.2, y: 45.5, w: 2.6 },
+      playing_cards: { x: 60.4, y: 45.5, w: 3.2 },
+      radio: { x: 65.3, y: 45.5, w: 6 },
       // 舱门上
       door_lock: { x: 75.5, y: 45, w: 4 },
     },

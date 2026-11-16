@@ -35,6 +35,7 @@ export const kiminaiEvents = [
   },
   {
     id: 'kiminai_welcome',
+    art: 'knock',
     title: '新室友',
     text: '{k} 把塞得鼓鼓囊囊的大背包往墙角一放，掏出一本自制的《末日生存百科》：“交给我吧！这种小事我有八种方案！”',
     weight: 0,

@@ -956,6 +956,7 @@ export const itemEvents: EventDef[] = [
   },
   {
     id: 'beggar_return',
+    art: 'beggar',
     title: '老人又来了',
     text: '前几天那个老人又来了，这次腰板挺直了些。他把一个布包放在门口：“前几天那一口，我记着呢。”',
     weight: 0,
@@ -1028,6 +1029,7 @@ export const itemEvents: EventDef[] = [
   },
   {
     id: 'cat_gift',
+    art: 'stray_cat',
     title: '橘猫的回礼',
     text: '那只橘猫又来了，嘴里叼着什么东西，“啪”地放在门口，然后一脸骄傲地看着你们。',
     weight: 0,
@@ -1112,6 +1114,7 @@ export const itemEvents: EventDef[] = [
   },
   {
     id: 'dog_return',
+    art: 'injured_dog',
     title: '大黄狗回来了',
     text: '那条大黄狗回来了，腿已经不瘸了。它叼着一个脏兮兮的背包，放在你们脚边，然后蹲坐着等夸奖。',
     weight: 0,
@@ -1211,6 +1214,7 @@ export const itemEvents: EventDef[] = [
   },
   {
     id: 'neighbor_thanks',
+    art: 'sick_neighbor',
     title: '墙缝里的纸包',
     text: '隔壁的小女孩从墙缝里塞过来一个纸包，上面用蜡笔画着一个歪歪扭扭的笑脸。',
     weight: 0,

@@ -59,6 +59,7 @@ export const characterEvents: EventDef[] = [
   },
   {
     id: 'garama_haggle',
+    art: 'garama_knock',
     title: '顶级机械顾问',
     text: '门外的人清了清嗓子，又补了一句：“嘎拉嘛！……这是我的名字，也是我的口号。”说话间，门铰链已经被她拧得一声不响了。',
     tags: ['visitor'],
@@ -110,6 +111,7 @@ export const characterEvents: EventDef[] = [
   },
   {
     id: 'garama_welcome',
+    art: 'garama_knock',
     title: '夜班开工',
     text: '{g} 把额头上的眼罩往上推了推，抱着黑皮笔记本绕庇护所走了一圈，在每扇门、每个柜子上都敲了敲：“结构凑合。往后夜班归我，你们安心睡。”',
     weight: 0,
@@ -193,6 +195,7 @@ export const characterEvents: EventDef[] = [
   },
   {
     id: 'kelaode_welcome',
+    art: 'kelaode_umbrella',
     title: '统筹上任',
     text: '{c} 用两根手指捏起一块抹布，环视了一圈：“这角落的灰尘厚度超标了。不过——从今天起，这里由本小姐统筹。”',
     weight: 0,
@@ -273,6 +276,7 @@ export const characterEvents: EventDef[] = [
   },
   {
     id: 'moon_welcome',
+    art: 'moon_flyers',
     title: '月氏情报站',
     text: '{m} 三分钟内把仓库里的东西按保质期排成了方阵，又顺手贴上一张《月氏避难所管理建议书》：“有问题可以问我。但请一次只问一个。”',
     weight: 0,
@@ -344,6 +348,7 @@ export const characterEvents: EventDef[] = [
   },
   {
     id: 'tangbao_doorstep',
+    art: 'tangbao_candy',
     title: '门外的认错声',
     text: '门外的道歉还在继续，听动静，她已经鞠到第十七个躬了。',
     tags: ['visitor'],
@@ -378,6 +383,7 @@ export const characterEvents: EventDef[] = [
   },
   {
     id: 'tangbao_welcome',
+    art: 'tangbao_candy',
     title: '全糖驾到',
     text: '{t} 在屋里转了一圈，见什么夸什么：“哇，这个纸箱堆得好有层次感！这个角落的灰好有年代感！住在这里的人真的太厉害了！”',
     weight: 0,

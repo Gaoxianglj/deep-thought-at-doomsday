@@ -232,6 +232,7 @@ export const rescueEvents = [
   },
   {
     id: 'caravan_visit',
+    art: 'caravan_first_contact',
     title: '车队来了',
     text: '卡车停在楼下，领队靠在车门上翻着小本子：“还差水 {flag:caravan_water_left} 份、吃的 {flag:caravan_food_left} 份。今天能交多少？一份一份地搬也行，一次搬三份也行。”',
     weight: 0,
@@ -321,6 +322,7 @@ export const rescueEvents = [
   },
   {
     id: 'trail_clue_2',
+    art: 'trail_clue_1',
     title: '第二个记号',
     text: '{self} 在 {flagLocation:trail_2} 找到了第二个红漆记号，旁边还多了几道新鲜的划痕，像是有人最近刚来过。',
     weight: 0,
