@@ -122,56 +122,75 @@ function stepParty(store: Store): Children {
   const unlocked = new Set(store.get().profile?.unlockedCharacters ?? []);
   const map = draft.mapId ? content.maps.get(draft.mapId) : undefined;
   const max = map?.partySize.max ?? Infinity;
-  const cards = content.db.characters.map((c) => {
-    if (!unlocked.has(c.id)) {
-      return h(
-        'div',
-        { class: 'hero-card is-locked', attrs: { 'aria-label': T.setup.lockedCharacter } },
-        h(
-          'span',
-          { class: 'hero-card__art hero-card__art--silhouette' },
-          artImg('characters', c.id, 'normal', T.common.unknownName),
-        ),
-        h('span', { class: 'hero-card__name' }, T.common.unknownName),
-        h('span', { class: 'hero-card__meta' }, T.setup.lockedCharacter),
-      );
-    }
-    const selected = draft.party.includes(c.id);
-    const full = !selected && draft.party.length >= max;
-    return h(
-      'button',
+  // 已解锁的在前（可选的卡片），未解锁的收成一小块剪影，避免 7 个角色把一排撑得太宽
+  const locked = content.db.characters.filter((c) => !unlocked.has(c.id));
+  const lockedBlock =
+    locked.length > 0 &&
+    h(
+      'div',
       {
-        class: ['hero-card', selected && 'is-on'],
-        attrs: { type: 'button', 'aria-pressed': selected ? 'true' : 'false', disabled: full },
-        on: {
-          click: () => {
-            draft.party = selected
-              ? draft.party.filter((id) => id !== c.id)
-              : [...draft.party, c.id];
-            store.touch();
-          },
-        },
-        fkey: `pick-${c.id}`,
+        class: ['hero-locked', locked.length <= 2 && 'hero-locked--single'],
+        attrs: { role: 'group', 'aria-label': fmt(T.setup.lockedGroup, { n: locked.length }) },
       },
-      selected && h('span', { class: 'hero-card__order' }, String(draft.party.indexOf(c.id) + 1)),
-      h('span', { class: 'hero-card__art' }, artImg('characters', c.id, 'normal', c.name)),
-      h('span', { class: 'hero-card__name' }, c.name),
-      c.cost ? h('span', { class: 'hero-card__meta' }, fmt(T.setup.cost, { cost: c.cost })) : null,
-      c.desc && h('span', { class: 'hero-card__desc' }, c.desc),
-      c.traits.length > 0 &&
-        h(
-          'span',
-          { class: 'hero-card__traits' },
-          c.traits.map((t) =>
-            h('span', { class: 'tag-chip', attrs: { title: t.desc ?? '' } }, t.name),
+      h('span', { class: 'hero-locked__title' }, fmt(T.setup.lockedGroup, { n: locked.length })),
+      h(
+        'span',
+        { class: 'hero-locked__grid' },
+        locked.map((c) =>
+          h(
+            'span',
+            { class: 'hero-mini', attrs: { title: T.setup.lockedCharacter } },
+            h(
+              'span',
+              { class: 'hero-card__art hero-card__art--silhouette hero-mini__art' },
+              artImg('characters', c.id, 'normal', T.common.unknownName),
+            ),
+            h('span', { class: 'hero-mini__name' }, T.common.unknownName),
           ),
         ),
+      ),
     );
-  });
+  const cards = content.db.characters
+    .filter((c) => unlocked.has(c.id))
+    .map((c) => {
+      const selected = draft.party.includes(c.id);
+      const full = !selected && draft.party.length >= max;
+      return h(
+        'button',
+        {
+          class: ['hero-card', selected && 'is-on'],
+          attrs: { type: 'button', 'aria-pressed': selected ? 'true' : 'false', disabled: full },
+          on: {
+            click: () => {
+              draft.party = selected
+                ? draft.party.filter((id) => id !== c.id)
+                : [...draft.party, c.id];
+              store.touch();
+            },
+          },
+          fkey: `pick-${c.id}`,
+        },
+        selected && h('span', { class: 'hero-card__order' }, String(draft.party.indexOf(c.id) + 1)),
+        h('span', { class: 'hero-card__art' }, artImg('characters', c.id, 'normal', c.name)),
+        h('span', { class: 'hero-card__name' }, c.name),
+        c.cost
+          ? h('span', { class: 'hero-card__meta' }, fmt(T.setup.cost, { cost: c.cost }))
+          : null,
+        c.desc && h('span', { class: 'hero-card__desc' }, c.desc),
+        c.traits.length > 0 &&
+          h(
+            'span',
+            { class: 'hero-card__traits' },
+            c.traits.map((t) =>
+              h('span', { class: 'tag-chip', attrs: { title: t.desc ?? '' } }, t.name),
+            ),
+          ),
+      );
+    });
   const n = draft.party.length;
   const ok = !!map && n >= map.partySize.min && n <= map.partySize.max;
   return [
-    h('div', { class: 'hero-row', attrs: { 'data-skey': 'setup-party' } }, cards),
+    h('div', { class: 'hero-row', attrs: { 'data-skey': 'setup-party' } }, cards, lockedBlock),
     h(
       'div',
       { class: 'setup-foot' },

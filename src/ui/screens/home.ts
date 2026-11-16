@@ -70,7 +70,11 @@ export function render(root: HTMLElement, store: Store): void {
     .filter((c) => c !== undefined);
   const lineup = h(
     'div',
-    { class: 'lineup', attrs: { 'aria-label': T.home.companions } },
+    {
+      // 人多时挤一挤：互相叠一点、前后错开，名字不折行
+      class: ['lineup', unlocked.length > 4 && 'lineup--crowd'],
+      attrs: { 'aria-label': T.home.companions },
+    },
     unlocked.length
       ? unlocked.map((c, i) => {
           const fig = h(

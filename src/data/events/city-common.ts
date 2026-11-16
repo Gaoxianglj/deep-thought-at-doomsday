@@ -21,7 +21,7 @@ export const cityCommonEvents = [
           {
             when: { not: { hasItem: 'door_lock' } },
             text: '门被撞开了，他们翻箱倒柜带走了一些东西：{lost}。',
-            effects: [{ loseRandomItem: { count: 2 } }],
+            effects: [{ loseRandomItem: { count: 2 } }, { setFlag: 'incident', value: true }],
           },
         ],
       },
@@ -33,12 +33,16 @@ export const cityCommonEvents = [
         outcomes: [
           {
             weight: 3,
-            text: '撬棍在手，气势先赢了一半。闯入者落荒而逃。',
+            text: '撬棍在手，气势先赢了一半。闯入者落荒而逃，门口留下一摊血迹。',
+            effects: [{ setFlag: 'rule_broken', value: true }],
           },
           {
             weight: 1,
             text: '赶跑了闯入者，但混乱中有人被划伤了。',
-            effects: [{ stat: 'health', of: 'random', add: -10 }],
+            effects: [
+              { stat: 'health', of: 'random', add: -10 },
+              { setFlag: 'rule_broken', value: true },
+            ],
           },
         ],
       },
@@ -49,7 +53,7 @@ export const cityCommonEvents = [
           {
             weight: 1,
             text: '他们没发现储藏间，随便拿了点东西就走了：{lost}。',
-            effects: [{ loseRandomItem: { count: 1 } }],
+            effects: [{ loseRandomItem: { count: 1 } }, { setFlag: 'incident', value: true }],
           },
           {
             weight: 1,
@@ -104,6 +108,7 @@ export const cityCommonEvents = [
     title: '老鼠开会',
     text: '储藏间里传来窸窸窣窣的声音。一群老鼠似乎把这里当成了自助餐厅。',
     tags: ['pest'],
+    cooldown: 4,
     choices: [
       {
         id: 'drive_away',
@@ -116,7 +121,22 @@ export const cityCommonEvents = [
           {
             when: { not: { hasItem: 'flashlight' } },
             text: '黑灯瞎火的，老鼠溜得比你们追得快，还叼走了：{lost}。',
-            effects: [{ loseRandomItem: { tag: 'food', count: 1 } }],
+            effects: [
+              { loseRandomItem: { tag: 'food', count: 1 } },
+              { setFlag: 'incident', value: true },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'spray',
+        text: '拿杀虫喷雾招呼它们',
+        requires: { hasItem: 'bug_spray' },
+        requiresHint: '需要杀虫喷雾',
+        outcomes: [
+          {
+            text: '刺鼻的雾气一喷，老鼠们吱吱叫着钻回了墙缝。喷雾也见底了。',
+            effects: [{ item: 'bug_spray', add: -1 }],
           },
         ],
       },
@@ -126,7 +146,10 @@ export const cityCommonEvents = [
         outcomes: [
           {
             text: '第二天一看，老鼠们吃得很尽兴：{lost}。',
-            effects: [{ loseRandomItem: { tag: 'food', count: 2 } }],
+            effects: [
+              { loseRandomItem: { tag: 'food', count: 2 } },
+              { setFlag: 'incident', value: true },
+            ],
           },
         ],
       },
@@ -137,6 +160,7 @@ export const cityCommonEvents = [
     title: '天花板在漏水',
     text: '{self} 发现天花板在滴水，水质看起来……还行？',
     tags: ['water'],
+    cooldown: 4,
     roles: { self: { where: { not: { hasStatus: 'insane', of: 'self' } } } },
     choices: [
       {
@@ -160,8 +184,14 @@ export const cityCommonEvents = [
         text: '堵住漏洞，省得麻烦',
         outcomes: [
           {
-            text: '{self} 费了一番功夫，总算把漏洞堵上了。累是累，但心里踏实。',
+            when: { hasItem: 'duct_tape' },
+            text: '{self} 用胶带缠了三圈，漏洞服服帖帖。胶带还剩不少。',
             effects: [{ stat: 'sanity', of: 'self', add: 3 }],
+          },
+          {
+            when: { not: { hasItem: 'duct_tape' } },
+            text: '{self} 拿破布塞了半天，水还是顺着墙往下淌，把墙角的一样东西泡坏了：{lost}。',
+            effects: [{ loseRandomItem: { count: 1 } }, { setFlag: 'incident', value: true }],
           },
         ],
       },
@@ -220,10 +250,12 @@ export const cityCommonEvents = [
         text: '打开纸箱',
         outcomes: [
           {
-            text: '纸箱里竟然是整整齐齐的罐头和饮用水！{self} 像做贼一样把它们全抱了回来。',
+            text: '纸箱里竟然是整整齐齐的罐头、饮用水和一袋大米！{self} 像做贼一样把它们全抱了回来——后仓库这下彻底空了。',
             effects: [
               { item: 'canned_food', add: 2 },
               { item: 'bottled_water', add: 2 },
+              { item: 'rice', add: 1 },
+              { setFlag: 'back_room_emptied', value: true },
             ],
           },
         ],
@@ -241,10 +273,11 @@ export const cityCommonEvents = [
         text: '撕开封条',
         outcomes: [
           {
-            text: '呛人的气体还没出来，{self} 已经把里面的急救用品一股脑装进了包。',
+            text: '呛人的气体还没出来，{self} 已经把里面的急救用品一股脑装进了包。药柜这下空了。',
             effects: [
               { item: 'medkit', add: 1 },
               { item: 'cold_medicine', add: 2 },
+              { setFlag: 'pharmacy_vault_opened', value: true },
             ],
           },
         ],
@@ -263,18 +296,23 @@ export const cityCommonEvents = [
         outcomes: [
           {
             weight: 2,
-            text: '铁链应声而断。{self} 在里面翻出了不少好东西。',
+            text: '铁链应声而断。{self} 在里面翻出了一卷胶带、一捆绳子和一台还能响的收音机。',
             effects: [
-              { item: 'door_lock', add: 1 },
-              { item: 'flashlight', add: 1 },
+              { item: 'duct_tape', add: 1 },
+              { item: 'rope', add: 1 },
+              { item: 'radio', add: 1 },
+              { setFlag: 'market_vault_opened', value: true },
             ],
           },
           {
             weight: 1,
-            text: '撬开的瞬间，货架上的东西哗啦啦砸了下来。{self} 带着一身淤青和一个门锁回了家。',
+            text: '撬开的瞬间，货架上的东西哗啦啦砸了下来，撬棍也弯成了问号。{self} 带着一身淤青、一个门锁和一卷胶带回了家。',
             effects: [
               { item: 'door_lock', add: 1 },
+              { item: 'duct_tape', add: 1 },
+              { item: 'crowbar', add: -1 },
               { stat: 'health', of: 'self', add: -8 },
+              { setFlag: 'market_vault_opened', value: true },
             ],
           },
         ],

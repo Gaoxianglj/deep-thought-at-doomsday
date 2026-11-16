@@ -257,3 +257,23 @@ describe('会话：由开局 + 动作重建', () => {
     expect(text).toContain('还没有结束');
   });
 });
+
+describe('describeState 的备忘', () => {
+  it('有备忘时列出（按 order，模板已渲染）；条件不成立的不列', () => {
+    const withNotes = makeContent((db) => {
+      db.notes = [
+        { id: 'later', text: '第二条', order: 2 },
+        { id: 'goal', text: '目标：第 {day} 天', order: 1 },
+        { id: 'hidden', text: '不该出现', when: { flag: 'never_set' } },
+      ];
+    });
+    const text = describeState(withNotes, newRun(withNotes, setup));
+    expect(text).toContain('备忘');
+    expect(text.indexOf('目标：第 1 天')).toBeLessThan(text.indexOf('第二条'));
+    expect(text).not.toContain('不该出现');
+  });
+
+  it('没有备忘时不出现备忘段', () => {
+    expect(describeState(content, newRun(content, setup))).not.toContain('备忘');
+  });
+});

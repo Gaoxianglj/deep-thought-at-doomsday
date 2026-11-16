@@ -6,8 +6,10 @@ export const kiminaiEvents = [
     title: '敲门声',
     text: '咚、咚、咚。深夜，庇护所的门被人轻轻敲响。门外传来一个懒洋洋的声音：“请问……这里收留路过的吗？”',
     tags: ['visitor'],
-    when: { all: [{ not: { inParty: 'kiminai' } }, { day: { gte: 3 } }] },
-    cooldown: 4,
+    when: {
+      all: [{ not: { inParty: 'kiminai' } }, { partyAlive: { lte: 3 } }, { day: { gte: 3 } }],
+    },
+    cooldown: 5,
     choices: [
       {
         id: 'let_in',
@@ -34,7 +36,7 @@ export const kiminaiEvents = [
   {
     id: 'kiminai_welcome',
     title: '新室友',
-    text: '{k} 把大包往墙角一放，说自己什么都吃、什么都睡得着。大家决定先给她安排一个最不漏风的角落。',
+    text: '{k} 把塞得鼓鼓囊囊的大背包往墙角一放，掏出一本自制的《末日生存百科》：“交给我吧！这种小事我有八种方案！”',
     weight: 0,
     roles: { k: { is: 'kiminai' } },
     choices: [
@@ -43,7 +45,7 @@ export const kiminaiEvents = [
         text: '欢迎加入',
         outcomes: [
           {
-            text: '{k} 很快就和大家打成一片，并且已经在研究怎么把配给分得更均匀了。',
+            text: '{k} 很快就和大家打成一片，已经开始给大家科普每个罐头的保质期了。',
             effects: [{ stat: 'sanity', of: 'all', add: 5 }],
           },
         ],

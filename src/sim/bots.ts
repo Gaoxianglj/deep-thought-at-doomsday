@@ -1,5 +1,7 @@
 /** 模拟用策略。纯逻辑，不依赖 DOM / Node。策略里不得出现任何具体内容 id。 */
 import {
+  aliveIds,
+  evalCondition,
   getEventView,
   shelterIds,
   validateExpeditionPlan,
@@ -8,9 +10,14 @@ import {
   type Effect,
   type Condition,
   type Env,
+  type EventDef,
   type ExpeditionPlan,
   type ItemDef,
+  type Rule,
+  type Scope,
 } from '../engine';
+
+type ChoiceDef = EventDef['choices'][number];
 
 /** 每局一份、由 simulateRun 创建并传给 setup / act 的 bot 私有记忆（bot 自己不得持有跨局的全局状态） */
 export type BotMemory = Record<string, unknown>;
@@ -281,6 +288,11 @@ export interface Policy {
   exploreMinHome: number;
   /** 选地点时对危险的厌恶：得分 = 配给收益 / (1 + danger × dangerWeight) */
   dangerWeight: number;
+  /**
+   * 追目标的力度（0 = 不追）：去"会触发东西"的地点（地点专属事件 / 外出归来时的全局规则命中）
+   * 加分 goalWeight × 期望触发次数 / (1 + danger × dangerWeight)；有目标时即使 exploreWhenSafe 为 false 也会出门。
+   */
+  goalWeight: number;
 }
 
 export const DEFAULT_POLICY: Policy = {
@@ -291,6 +303,7 @@ export const DEFAULT_POLICY: Policy = {
   exploreWhenSafe: true,
   exploreMinHome: 1,
   dangerWeight: 4,
+  goalWeight: 4,
 };
 
 /** 各风格的预设（相对 DEFAULT_POLICY 的差异） */
@@ -367,14 +380,27 @@ function visitsOf(mem: BotMemory): Record<string, number> {
   return ((mem.visits as Record<string, number> | undefined) ??= {}) as Record<string, number>;
 }
 
+/** 策略 bot 的每局记忆：为追目标去过各地点几次 */
+function goalTripsOf(mem: BotMemory): Record<string, number> {
+  return ((mem.goalTrips as Record<string, number> | undefined) ??= {}) as Record<string, number>;
+}
+
 /** 递归收集条件里出现的 hasItem / carrying 物品 id */
-function itemRefsIn(cond: Condition | undefined, out: Set<string>): void {
+function itemRefsIn(
+  cond: Condition | undefined,
+  out: Set<string>,
+  flags?: Record<string, unknown>,
+): void {
   if (!cond) return;
   if ('carrying' in cond) out.add(cond.carrying);
   else if ('hasItem' in cond) out.add(cond.hasItem);
-  else if ('all' in cond) for (const c of cond.all) itemRefsIn(c, out);
-  else if ('any' in cond) for (const c of cond.any) itemRefsIn(c, out);
-  else if ('not' in cond) itemRefsIn(cond.not, out);
+  else if ('hasFlagItem' in cond) {
+    // flag 里存的物品 id（如本局随机的撤离凭证）；开局时还不知道，传了 flags 才收集
+    const id = flags?.[cond.hasFlagItem];
+    if (typeof id === 'string') out.add(id);
+  } else if ('all' in cond) for (const c of cond.all) itemRefsIn(c, out, flags);
+  else if ('any' in cond) for (const c of cond.any) itemRefsIn(c, out, flags);
+  else if ('not' in cond) itemRefsIn(cond.not, out, flags);
 }
 
 /** 事件触发条件 / 地点特殊事件条件所依赖的物品（买了才可能解锁相应内容） */
@@ -428,8 +454,210 @@ function rationLootValue(content: Content, locationId: string): number {
 
 // ---------- 事件选项打分 ----------
 
-function scoreEffects(env: Env, effects: Effect[] | undefined): number {
-  const { content } = env;
+/**
+ * 求值用的副本：条件里的 `chance` 会推进 run.rng（run 上的一个数字字段），打分时还会在副本上
+ * "心算"标记与库存的增减，所以浅拷贝 run 并单独拷贝 flags / inventory；真实对局状态不受影响。
+ */
+function sandbox(env: Env): Env {
+  const { run } = env;
+  return {
+    content: env.content,
+    run: { ...run, flags: { ...run.flags }, inventory: { ...run.inventory } },
+  };
+}
+
+/** 某配给标签的库存可撑天数（库存 ÷ 活人数）→ 每失去一件的代价：越紧张越贵 */
+function rationLossCost(sim: Env, tag: string): number {
+  const { run, content } = sim;
+  let stock = 0;
+  for (const i of content.db.items) if (i.tags.includes(tag)) stock += run.inventory[i.id] ?? 0;
+  const days = stock / Math.max(1, aliveIds(run).length);
+  return days > 4 ? 1 : days >= 2 ? 3 : 10;
+}
+
+/** 在副本里扣掉该标签库存最多的一件（供后续效果按扣减后的库存估价） */
+function takeOneOfTag(sim: Env, tag: string): void {
+  const { run, content } = sim;
+  const best = content.db.items
+    .filter((i) => i.tags.includes(tag) && (run.inventory[i.id] ?? 0) > 0)
+    .sort((a, b) => run.inventory[b.id] - run.inventory[a.id])[0];
+  if (best) run.inventory[best.id]--;
+}
+
+const rationTagOf = (content: Content, itemId: string): string | undefined =>
+  content.items.get(itemId)?.tags.find((t) => content.config.rationTags.includes(t));
+
+/** 库存增减（item / flagItem 效果）的得分；在副本里同步改库存 */
+function scoreItemChange(sim: Env, itemId: string, add: number): number {
+  const { content, run } = sim;
+  const item = content.items.get(itemId);
+  if (!item || add === 0) return 0;
+  if (add > 0) {
+    run.inventory[itemId] = (run.inventory[itemId] ?? 0) + add;
+    return (item.tags.includes('part') ? 6 : 1.5) * add;
+  }
+  const tag = rationTagOf(content, itemId);
+  let score = 0;
+  for (let n = 0; n < -add && (run.inventory[itemId] ?? 0) > 0; n++) {
+    score -= tag ? rationLossCost(sim, tag) : 1;
+    run.inventory[itemId]--;
+  }
+  return score;
+}
+
+// ---------- 标记的"方向"：哪些标记往哪边变才是在靠近（非死亡）结局 ----------
+
+/** 某标记朝哪个方向变化算靠近结局 */
+interface FlagDir {
+  up: boolean;
+  down: boolean;
+  truthy: boolean;
+  falsy: boolean;
+}
+
+interface GoalInfo {
+  /** 守着非死亡结局的条件：结局的 when、带结局效果的事件 / 选项 / 结果 / if / 规则的条件 */
+  guards: { cond: Condition; positive: boolean }[];
+  dirs: Map<string, FlagDir>;
+}
+
+const goalInfoCache = new WeakMap<Content, GoalInfo>();
+
+/**
+ * 标记朝结局方向走一步的分值。与上交物资的代价（每件 1 / 3 / 10，见 rationLossCost）对照：
+ * 一次交 2 件时，库存可撑 2 天以上就交，不到 2 天就先不交。
+ */
+const FLAG_STEP = 8;
+
+const isGoodEnding = (content: Content, id: string) => {
+  const kind = content.endings.get(id)?.kind;
+  return kind !== undefined && kind !== 'death';
+};
+
+/** 收集效果列表里通往非死亡结局的 if 条件；返回列表里是否有非死亡结局 */
+function endingPath(
+  content: Content,
+  effects: Effect[] | undefined,
+  out: { cond: Condition; positive: boolean }[],
+): boolean {
+  let found = false;
+  for (const e of effects ?? []) {
+    if ('ending' in e && isGoodEnding(content, e.ending)) found = true;
+    else if ('if' in e) {
+      if (endingPath(content, e.then, out)) {
+        out.push({ cond: e.if, positive: true });
+        found = true;
+      }
+      if (endingPath(content, e.else, out)) {
+        out.push({ cond: e.if, positive: false });
+        found = true;
+      }
+    } else if ('random' in e) {
+      for (const r of e.random) if (endingPath(content, r.effects, out)) found = true;
+    }
+  }
+  return found;
+}
+
+function flagDirsIn(cond: Condition, positive: boolean, dirs: Map<string, FlagDir>): void {
+  if ('all' in cond) for (const c of cond.all) flagDirsIn(c, positive, dirs);
+  else if ('any' in cond) for (const c of cond.any) flagDirsIn(c, positive, dirs);
+  else if ('not' in cond) flagDirsIn(cond.not, !positive, dirs);
+  else if ('flag' in cond) {
+    const d = dirs.get(cond.flag) ?? { up: false, down: false, truthy: false, falsy: false };
+    const lower = cond.lt !== undefined || cond.lte !== undefined;
+    const higher = cond.gt !== undefined || cond.gte !== undefined;
+    if (lower || higher) {
+      if (lower) d[positive ? 'down' : 'up'] = true;
+      if (higher) d[positive ? 'up' : 'down'] = true;
+    } else if (cond.eq === undefined) {
+      const wantTrue = cond.is === undefined ? positive : !!cond.is === positive;
+      d[wantTrue ? 'truthy' : 'falsy'] = true;
+    }
+    dirs.set(cond.flag, d);
+  }
+}
+
+function goalInfo(content: Content): GoalInfo {
+  const cached = goalInfoCache.get(content);
+  if (cached) return cached;
+  // targets：结局成立时应当满足的状态（结局 when、结果 when、通往结局的 if、规则 when）→ 推出标记方向；
+  // guards 另含事件 when 与选项 requires（"能走这条路"的前提，如出示凭证）→ 只用来判断物品能否解锁内容
+  const targets: GoalInfo['guards'] = [];
+  const guards: GoalInfo['guards'] = [];
+  for (const end of content.db.endings)
+    if (end.when && end.kind !== 'death') targets.push({ cond: end.when, positive: true });
+  for (const ev of content.db.events) {
+    for (const c of ev.choices) {
+      for (const o of c.outcomes) {
+        if (!endingPath(content, o.effects, targets)) continue;
+        if (o.when) targets.push({ cond: o.when, positive: true });
+        for (const cond of [ev.when, c.requires]) if (cond) guards.push({ cond, positive: true });
+      }
+    }
+  }
+  const rules = [
+    ...content.db.maps.flatMap((m) => m.rules ?? []),
+    ...content.db.items.flatMap((i) => i.rules ?? []),
+  ];
+  for (const r of rules)
+    if (endingPath(content, r.effects, targets) && r.when)
+      targets.push({ cond: r.when, positive: true });
+  const dirs = new Map<string, FlagDir>();
+  for (const g of targets) flagDirsIn(g.cond, g.positive, dirs);
+  // 两个方向都想要 = 说不清，当作无关
+  for (const [k, d] of dirs) if ((d.up && d.down) || (d.truthy && d.falsy)) dirs.delete(k);
+  const info = { guards: [...targets, ...guards], dirs };
+  goalInfoCache.set(content, info);
+  return info;
+}
+
+/**
+ * 一段效果前后标记的净变化得分：朝结局方向 +FLAG_STEP、背离 −FLAG_STEP；与结局无关的标记被设为真值 / 数字变化 +1；
+ * 第一次写入（原来没有）算初始化，+1（例如"车队报出还需要几份水"不能算成倒退）。
+ */
+function flagDelta(
+  content: Content,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): number {
+  const { dirs } = goalInfo(content);
+  let score = 0;
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    const a = before[key];
+    const b = after[key];
+    if (a === b) continue;
+    if (a === undefined) {
+      score += b ? 1 : 0;
+      continue;
+    }
+    const dir = dirs.get(key);
+    let s = 0;
+    if (dir && (typeof a === 'number' || typeof b === 'number')) {
+      const d = (typeof b === 'number' ? b : 0) - (typeof a === 'number' ? a : 0);
+      if ((d < 0 && dir.down) || (d > 0 && dir.up)) s += FLAG_STEP;
+      if ((d < 0 && dir.up) || (d > 0 && dir.down)) s -= FLAG_STEP;
+    } else if (dir && !!a !== !!b) {
+      if (b ? dir.truthy : dir.falsy) s += FLAG_STEP;
+      if (b ? dir.falsy : dir.truthy) s -= FLAG_STEP;
+    }
+    score += s !== 0 ? s : b ? 1 : 0;
+  }
+  return score;
+}
+
+/**
+ * 效果列表的得分。sim 是 sandbox 副本：按顺序"心算"标记与库存的变化，
+ * 这样后面的 `if`（例如"交完这批是否就交齐了"）按变化后的状态选分支；标记按整段的净变化计分。
+ */
+function scoreEffects(sim: Env, scope: Scope, effects: Effect[] | undefined): number {
+  const before = { ...sim.run.flags };
+  const s = scoreRaw(sim, scope, effects);
+  return s + flagDelta(sim.content, before, sim.run.flags);
+}
+
+function scoreRaw(sim: Env, scope: Scope, effects: Effect[] | undefined): number {
+  const { content, run } = sim;
   let score = 0;
   for (const e of effects ?? []) {
     if ('stat' in e) {
@@ -439,38 +667,59 @@ function scoreEffects(env: Env, effects: Effect[] | undefined): number {
       if (e.add !== undefined) score += (e.add / range) * 20 * mul;
     } else if ('addStatus' in e) score -= 4 * (e.chance ?? 1);
     else if ('removeStatus' in e) score += 4;
-    else if ('item' in e) {
-      const isPart = content.items.get(e.item)?.tags.includes('part');
-      score += e.add > 0 ? (isPart ? 6 : 1.5) * e.add : 1 * e.add;
-    } else if ('loseRandomItem' in e) score -= 2 * (e.loseRandomItem.count ?? 1);
-    else if ('setFlag' in e) score += e.value ? 6 : 0;
+    else if ('item' in e) score += scoreItemChange(sim, e.item, e.add);
+    else if ('flagItem' in e) {
+      const id = run.flags[e.flagItem];
+      if (typeof id === 'string') score += scoreItemChange(sim, id, e.add);
+    } else if ('loseRandomItem' in e) {
+      const { tag, count = 1 } = e.loseRandomItem;
+      for (let n = 0; n < count; n++) {
+        if (tag && content.config.rationTags.includes(tag)) {
+          score -= rationLossCost(sim, tag);
+          takeOneOfTag(sim, tag);
+        } else score -= 2;
+      }
+    } else if ('setFlag' in e) run.flags[e.setFlag] = e.value;
+    else if ('addFlag' in e) {
+      const cur = run.flags[e.addFlag];
+      run.flags[e.addFlag] = (typeof cur === 'number' ? cur : 0) + e.add;
+    } else if ('pickFlags' in e || 'queueEvent' in e) score += 1;
     else if ('joinParty' in e) score += 10;
     else if ('unlock' in e) score += 8;
     else if ('leaveParty' in e) score -= e.reason === 'dead' ? 20 : 12;
-    else if ('queueEvent' in e) score += 1;
-    else if ('ending' in e) score += content.endings.get(e.ending)?.kind === 'death' ? -30 : 30;
+    else if ('ending' in e) score += isGoodEnding(content, e.ending) ? 100 : -60;
     else if ('if' in e) {
-      score += (scoreEffects(env, e.then) + scoreEffects(env, e.else)) / 2;
+      const branch = evalCondition(sim, scope, e.if) ? e.then : e.else;
+      score += scoreRaw(sim, scope, branch);
     } else if ('random' in e) {
       const total = e.random.reduce((a, r) => a + (r.weight ?? 1), 0) || 1;
-      for (const r of e.random) score += ((r.weight ?? 1) / total) * scoreEffects(env, r.effects);
+      for (const r of e.random)
+        score += ((r.weight ?? 1) / total) * scoreEffects(sandbox(sim), scope, r.effects);
     }
   }
   return score;
 }
 
-/** 选项的期望得分：按 outcome 权重取平均，忽略 when */
-function scoreChoice(env: Env, eventId: string, choiceId: string): number {
-  const choice = env.content.events.get(eventId)?.choices.find((c) => c.id === choiceId);
-  if (!choice || !choice.outcomes.length) return 0;
-  const total = choice.outcomes.reduce((a, o) => a + (o.weight ?? 1), 0) || 1;
+/** 选项的期望得分：先按 outcome 的 when 过滤（与引擎一致；都不满足则全算），再按权重取平均 */
+function scoreChoiceDef(env: Env, scope: Scope, choice: ChoiceDef): number {
+  if (!choice.outcomes.length) return 0;
+  const usable = choice.outcomes.filter((o) => evalCondition(sandbox(env), scope, o.when));
+  const outcomes = usable.length ? usable : choice.outcomes;
+  const total = outcomes.reduce((a, o) => a + (o.weight ?? 1), 0) || 1;
   let score = 0;
-  for (const o of choice.outcomes) {
-    let s = scoreEffects(env, o.effects);
+  for (const o of outcomes) {
+    let s = scoreEffects(sandbox(env), scope, o.effects);
     if (o.next) s += 0.5;
     score += ((o.weight ?? 1) / total) * s;
   }
   return score;
+}
+
+function scoreChoice(env: Env, eventId: string, choiceId: string): number {
+  const choice = env.content.events.get(eventId)?.choices.find((c) => c.id === choiceId);
+  if (!choice) return 0;
+  const roles = env.run.pendingEvent?.roles ?? {};
+  return scoreChoiceDef(env, { self: roles.self, roles }, choice);
 }
 
 function bestChoice(env: Env, enabled: string[]): string | undefined {
@@ -486,6 +735,195 @@ function bestChoice(env: Env, enabled: string[]): string | undefined {
     }
   }
   return best;
+}
+
+// ---------- 目的地评估：哪里能"触发东西" ----------
+
+/** 全局规则来源（地图、难度、当前天气、库存道具）里在外出归来时触发的规则 */
+function returnRules(env: Env): Rule[] {
+  const { run, content } = env;
+  const all: Rule[] = [
+    ...(content.maps.get(run.mapId)?.rules ?? []),
+    ...(content.difficulties.get(run.difficultyId)?.rules ?? []),
+    ...(run.weather ? (content.weathers.get(run.weather.id)?.rules ?? []) : []),
+  ];
+  for (const [id, n] of Object.entries(run.inventory))
+    if (n > 0) all.push(...(content.items.get(id)?.rules ?? []));
+  return all.filter((r) => r.trigger === 'expeditionReturn' && r.effects?.length);
+}
+
+/** 目标评估的上下文：一次决策内共享的规则列表与"拿到某物品能否解锁新内容"的缓存 */
+interface GoalCtx {
+  env: Env;
+  rules: Rule[];
+  enables: Map<string, boolean>;
+}
+
+/**
+ * 多拿 1 件该物品，是否会让某个原本不成立的条件成立：事件的 when、地图规则的 when、
+ * 守着非死亡结局的条件（如"出示凭证"选项的 requires）。
+ * 例：拿到部件 → 安装事件入池；已经装好（when 里有"未安装"）就不再算。
+ */
+function enablesSomething(ctx: GoalCtx, itemId: string): boolean {
+  const cached = ctx.enables.get(itemId);
+  if (cached !== undefined) return cached;
+  const { env } = ctx;
+  const { content, run } = env;
+  const conds: Condition[] = goalInfo(content).guards.map((g) => g.cond);
+  for (const e of content.db.events) if (e.when) conds.push(e.when);
+  const map = content.maps.get(run.mapId);
+  for (const r of map?.rules ?? []) if (r.when) conds.push(r.when);
+  const refs = new Set<string>();
+  for (const c of conds) itemRefsIn(c, refs, run.flags);
+  let result = false;
+  if (refs.has(itemId)) {
+    const after = sandbox(env);
+    after.run.inventory[itemId] = (after.run.inventory[itemId] ?? 0) + 1;
+    result = conds.some(
+      (c) => !evalCondition(sandbox(env), {}, c) && evalCondition(sandbox(after), {}, c),
+    );
+  }
+  ctx.enables.set(itemId, result);
+  return result;
+}
+
+/**
+ * 效果里"推进进度"的程度：非死亡结局 10（死亡 −10）；标记的净变化（见 flagDelta）；
+ * 随机挑选标记、排队事件、入队 / 解锁、拿到能解锁新内容的物品各 1。普通物资不算（那是战利品，不是目标）。
+ */
+function progressOf(ctx: GoalCtx, sim: Env, scope: Scope, effects: Effect[] | undefined): number {
+  const before = { ...sim.run.flags };
+  const p = progressRaw(ctx, sim, scope, effects);
+  return p + flagDelta(sim.content, before, sim.run.flags);
+}
+
+function progressRaw(ctx: GoalCtx, sim: Env, scope: Scope, effects: Effect[] | undefined): number {
+  const { content, run } = sim;
+  let p = 0;
+  for (const e of effects ?? []) {
+    if ('ending' in e) p += isGoodEnding(content, e.ending) ? 10 : -10;
+    else if ('setFlag' in e) run.flags[e.setFlag] = e.value;
+    else if ('addFlag' in e) {
+      const cur = run.flags[e.addFlag];
+      run.flags[e.addFlag] = (typeof cur === 'number' ? cur : 0) + e.add;
+    } else if ('pickFlags' in e || 'queueEvent' in e || 'joinParty' in e || 'unlock' in e) p += 1;
+    else if ('item' in e || 'flagItem' in e) {
+      const id = 'item' in e ? e.item : run.flags[e.flagItem];
+      if (typeof id === 'string' && e.add > 0 && enablesSomething(ctx, id)) p += 1;
+    } else if ('if' in e) {
+      p += progressRaw(ctx, sim, scope, evalCondition(sim, scope, e.if) ? e.then : e.else);
+    } else if ('random' in e) {
+      const total = e.random.reduce((a, r) => a + (r.weight ?? 1), 0) || 1;
+      for (const r of e.random)
+        p += ((r.weight ?? 1) / total) * progressOf(ctx, sandbox(sim), scope, r.effects);
+    }
+  }
+  return p;
+}
+
+/** 事件最好的选项能推进多少进度（忽略 requires；outcome 按 when 过滤后按权重平均） */
+function eventProgress(ctx: GoalCtx, scope: Scope, eventId: string): number {
+  const { env } = ctx;
+  const ev = env.content.events.get(eventId);
+  let best = 0;
+  for (const c of ev?.choices ?? []) {
+    const usable = c.outcomes.filter((o) => evalCondition(sandbox(env), scope, o.when));
+    const outcomes = usable.length ? usable : c.outcomes;
+    const total = outcomes.reduce((a, o) => a + (o.weight ?? 1), 0) || 1;
+    let p = 0;
+    for (const o of outcomes)
+      p += ((o.weight ?? 1) / total) * progressOf(ctx, sandbox(env), scope, o.effects);
+    best = Math.max(best, p);
+  }
+  return best;
+}
+
+/**
+ * 一个外出计划"会推进目标"的程度（≈ 期望触发次数）：
+ * (a) 地点 specials 的 when 成立、且专属事件能推进进度（按 chance 计）；
+ * (c) 战利品表里有拿到就能解锁新内容的物品（按至少抽到一次的概率计）；
+ * (b) 全局 expeditionReturn 规则的 when 对这个计划成立、但对"哪儿也不去、什么也不带"的空计划不成立
+ *     （排除"任何外出归来都触发"的通用规则），且其效果能推进进度（按规则 chance 计）。
+ */
+function goalValue(ctx: GoalCtx, plan: ExpeditionPlan): number {
+  const { env } = ctx;
+  const { content } = env;
+  const loc = content.locations.get(plan.locationId);
+  if (!loc) return 0;
+  const scope: Scope = { self: plan.charId, expedition: plan };
+  let value = 0;
+  for (const sp of loc.specials ?? []) {
+    if (!content.events.has(sp.event)) continue;
+    if (!evalCondition(sandbox(env), scope, sp.when)) continue;
+    if (eventProgress(ctx, { self: plan.charId, roles: { self: plan.charId } }, sp.event) > 0)
+      value += sp.chance;
+    break; // 引擎只检查命中的第一条
+  }
+  // (c) 战利品表里有能解锁新内容的物品（如稀有部件）：按"至少抽到一次"的概率计
+  const total = loc.loot.reduce((a, l) => a + l.weight, 0);
+  for (const l of loc.loot) {
+    if (total <= 0 || !enablesSomething(ctx, l.item)) continue;
+    value += 1 - Math.pow(1 - l.weight / total, Math.max(1, loc.lootRolls));
+  }
+  const baseline: Scope = { self: plan.charId, expedition: { ...plan, locationId: '', carry: [] } };
+  for (const r of ctx.rules) {
+    if (!evalCondition(sandbox(env), scope, r.when)) continue;
+    if (evalCondition(sandbox(env), baseline, r.when)) continue;
+    if (progressOf(ctx, sandbox(env), scope, r.effects) <= 0) continue;
+    value += r.chance ?? 1;
+  }
+  return value;
+}
+
+/** 条件里出现的、库存里有的非配给 carrying 物品：可能是"带对东西才触发"的钥匙 */
+function keyCandidates(env: Env, conds: (Condition | undefined)[]): string[] {
+  const { content, run } = env;
+  const wanted = new Set<string>();
+  for (const c of conds) carryingIn(c, wanted);
+  return [...wanted].filter(
+    (id) => content.items.has(id) && !rationTagOf(content, id) && (run.inventory[id] ?? 0) >= 1,
+  );
+}
+
+/** 从 list 里取不超过 k 个的所有组合（含空集） */
+function subsets<T>(list: T[], k: number): T[][] {
+  const out: T[][] = [[]];
+  const rec = (start: number, cur: T[]) => {
+    for (let i = start; i < list.length; i++) {
+      const next = [...cur, list[i]];
+      out.push(next);
+      if (next.length < k) rec(i + 1, next);
+    }
+  };
+  if (k > 0) rec(0, []);
+  return out;
+}
+
+/** 某角色去各合法地点的目标值与对应的最佳携带组合（没有目标的地点不出现） */
+function goalTargets(env: Env, charId: string): Map<string, { value: number; carry: string[] }> {
+  const { content, run } = env;
+  const out = new Map<string, { value: number; carry: string[] }>();
+  const rules = returnRules(env);
+  const ctx: GoalCtx = { env, rules, enables: new Map() };
+  const slots = content.maps.get(run.mapId)?.expedition.carrySlots ?? 0;
+  for (const loc of content.db.locations) {
+    if (loc.map !== run.mapId) continue;
+    const base = buildPlan(env, charId, loc.id);
+    if (!base) continue;
+    const keys = keyCandidates(env, [
+      ...(loc.specials ?? []).map((s) => s.when),
+      ...rules.map((r) => r.when),
+    ]).slice(0, 6);
+    let best: { value: number; carry: string[] } | undefined;
+    for (const carry of subsets(keys, slots)) {
+      const plan = { ...base, carry };
+      if (validateExpeditionPlan(env, plan)) continue;
+      const value = goalValue(ctx, plan);
+      if (value > 1e-9 && (!best || value > best.value + 1e-9)) best = { value, carry };
+    }
+    if (best) out.set(loc.id, best);
+  }
+  return out;
 }
 
 /** 用一套策略参数造一个 bot */
@@ -618,37 +1056,53 @@ function policyAct(policy: Policy, env: Env, mem: BotMemory): Action {
     }
   }
 
-  // 3. 外出：补给不足时去能带回配给的地方；否则（有健康的人时）轮流探索各地点
+  // 3. 外出：补给不足时去能带回配给的地方；有目标（会触发专属事件 / 线索）就去目标；否则轮流探索各地点
   if (!run.expedition && !run.plan.expedition && chars.length) {
     const low = supplyLow(env, policy.lowSupplyDays);
     const ranked = [...chars].sort((a, b) => wellbeing(env, b) - wellbeing(env, a));
+    const seen = visitsOf(mem);
+    const visits = (id: string) => seen[id] ?? 0;
+    const trips = goalTripsOf(mem);
     for (const charId of ranked) {
-      if (
-        !low &&
-        (!policy.exploreWhenSafe ||
-          chars.length < policy.exploreMinHome + 1 ||
-          wellbeing(env, charId) < policy.exploreMinWellbeing)
-      )
-        continue;
+      const fit =
+        chars.length >= policy.exploreMinHome + 1 &&
+        wellbeing(env, charId) >= policy.exploreMinWellbeing;
+      if (!low && !fit) continue;
       const locs = legalLocations(env, charId);
       if (!locs.length) continue;
-      const seen = visitsOf(mem);
-      const visits = (id: string) => seen[id] ?? 0;
+      const goals: ReturnType<typeof goalTargets> =
+        policy.goalWeight > 0 ? goalTargets(env, charId) : new Map();
+      // 目标加分：按危险折算；同一目标地点去得越多越不急（防止数据没写"已完成"条件时原地打转）
+      const goalBonus = (l: { id: string; danger: number }) => {
+        const g = goals.get(l.id);
+        return g
+          ? (policy.goalWeight * g.value) /
+              (1 + l.danger * policy.dangerWeight) /
+              (1 + 0.25 * (trips[l.id] ?? 0))
+          : 0;
+      };
+      if (!low && !policy.exploreWhenSafe && !goals.size) continue;
+      const rationScore = (l: { id: string; danger: number }) =>
+        rationLootValue(content, l.id) / (1 + l.danger * policy.dangerWeight);
       const pickLoc = low
         ? locs.sort(
             (a, b) =>
-              rationLootValue(content, b.id) / (1 + b.danger * policy.dangerWeight) -
-                rationLootValue(content, a.id) / (1 + a.danger * policy.dangerWeight) ||
+              rationScore(b) + goalBonus(b) - (rationScore(a) + goalBonus(a)) ||
               visits(a.id) - visits(b.id),
           )[0]
-        : locs.sort(
-            (a, b) => visits(a.id) - visits(b.id) || a.danger - b.danger || a.distance - b.distance,
-          )[0];
+        : goals.size
+          ? locs.sort((a, b) => goalBonus(b) - goalBonus(a) || visits(a.id) - visits(b.id))[0]
+          : locs.sort(
+              (a, b) =>
+                visits(a.id) - visits(b.id) || a.danger - b.danger || a.distance - b.distance,
+            )[0];
       const plan = buildPlan(env, charId, pickLoc.id);
       if (!plan) continue;
-      plan.carry = carryFor(env, pickLoc.id);
+      const goal = goals.get(pickLoc.id);
+      plan.carry = goal ? goal.carry : carryFor(env, pickLoc.id);
       if (validateExpeditionPlan(env, plan)) continue;
       seen[pickLoc.id] = visits(pickLoc.id) + 1;
+      if (goal) trips[pickLoc.id] = (trips[pickLoc.id] ?? 0) + 1;
       return { type: 'planExpedition', ...plan };
     }
   }

@@ -1,8 +1,8 @@
 import type { StatDef } from '../engine/schema';
 
 export const stats = [
-  { id: 'satiety', name: '饱食度', min: 0, max: 100, initial: 70, dailyDelta: -12 },
-  { id: 'hydration', name: '水分', min: 0, max: 100, initial: 70, dailyDelta: -20 },
+  { id: 'satiety', name: '饱食度', min: 0, max: 100, initial: 70, dailyDelta: -10 },
+  { id: 'hydration', name: '水分', min: 0, max: 100, initial: 70, dailyDelta: -10 },
   {
     id: 'health',
     name: '健康',

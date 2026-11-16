@@ -241,6 +241,34 @@
   box-shadow: 0 calc(var(--u) * 2) 0 var(--ink);
 }
 
+.lineup--crowd {
+  gap: 0;
+  padding-inline: var(--s3);
+}
+
+.lineup--crowd .lineup__fig {
+  flex: 1 1 0;
+  max-width: calc(var(--u) * 120);
+  aspect-ratio: auto;
+  margin-inline: calc(var(--u) * -7);
+}
+
+/* 隔一个往后站一点：名字牌上下错开，不会挤在一条线上 */
+.lineup--crowd .lineup__fig:nth-child(even) {
+  z-index: 0;
+  margin-bottom: calc(var(--u) * 18);
+}
+
+.lineup--crowd .lineup__fig:nth-child(odd) {
+  z-index: 1;
+}
+
+.lineup--crowd .lineup__name {
+  padding: 0 var(--s2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
 .title-actions {
   display: flex;
   flex-wrap: wrap;
@@ -498,6 +526,7 @@
 
 .hero-row {
   align-items: stretch;
+  gap: var(--s3);
 }
 
 /* 地图、难度卡片：整行垂直居中，卡片等高 */
@@ -509,7 +538,9 @@
 
 .hero-card {
   align-items: center;
+  flex: 0 1 calc(var(--u) * 168);
   width: calc(var(--u) * 168);
+  min-width: calc(var(--u) * 156);
   max-height: 100%;
   text-align: center;
   padding-top: var(--s2);
@@ -575,6 +606,61 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--s1);
+}
+
+/* 未解锁的伙伴：收成一小块 2 列剪影 */
+.hero-locked {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  max-height: 100%;
+  padding: var(--s2);
+  border: var(--line-thin) dashed var(--ink-faint);
+  border-radius: var(--r-lg);
+  background: rgb(230 208 168 / 0.55);
+}
+
+.hero-locked__title {
+  max-width: calc(var(--u) * 114);
+  font: 800 var(--fs-xs) / 1.4 var(--font-title);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.hero-locked__grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, calc(var(--u) * 54));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: var(--s2);
+}
+
+.hero-locked--single .hero-locked__grid {
+  grid-template-columns: calc(var(--u) * 72);
+}
+
+.hero-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  padding: var(--s1);
+  border: var(--line-thin) solid var(--ink-faint);
+  border-radius: var(--r-md);
+  background: var(--paper-3);
+}
+
+.hero-mini__art {
+  height: auto;
+  min-height: calc(var(--u) * 36);
+  flex: 1 1 0;
+}
+
+.hero-mini__name {
+  font: 900 var(--fs-sm) / 1.3 var(--font-title);
+  color: var(--ink-soft);
 }
 
 .hero-card__order {

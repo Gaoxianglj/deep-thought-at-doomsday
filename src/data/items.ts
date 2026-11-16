@@ -13,11 +13,11 @@ export const items = [
   {
     id: 'bottled_water',
     name: '瓶装水',
-    desc: '清澈、无味、珍贵。水分 +45。',
+    desc: '清澈、无味、珍贵。水分 +30。',
     tags: ['water'],
     cost: 1,
     maxAtStart: 12,
-    onUse: [{ stat: 'hydration', of: 'self', add: 45 }],
+    onUse: [{ stat: 'hydration', of: 'self', add: 30 }],
   },
   {
     id: 'biscuit',
@@ -29,6 +29,18 @@ export const items = [
     onUse: [
       { stat: 'satiety', of: 'self', add: 22 },
       { stat: 'sanity', of: 'self', add: 3 },
+    ],
+  },
+  {
+    id: 'rice',
+    name: '大米',
+    desc: '一小袋真空包装的大米，煮出来满屋子都是香味。饱食度 +35，理智 +2。',
+    tags: ['food', 'rice'],
+    cost: 2,
+    maxAtStart: 6,
+    onUse: [
+      { stat: 'satiety', of: 'self', add: 35 },
+      { stat: 'sanity', of: 'self', add: 2 },
     ],
   },
   {
@@ -71,7 +83,7 @@ export const items = [
     name: '手电筒',
     desc: '有光，就没那么怕了。外出危险度小幅降低。',
     tags: ['tool'],
-    cost: 4,
+    cost: 3,
     maxAtStart: 1,
     rules: [
       {
@@ -85,7 +97,7 @@ export const items = [
     name: '收音机',
     desc: '大部分频道只有沙沙声，但说不定哪天能收到点什么。',
     tags: ['tool'],
-    cost: 5,
+    cost: 3,
     maxAtStart: 1,
   },
   {
@@ -134,21 +146,65 @@ export const items = [
     ],
   },
   {
+    id: 'lighter',
+    name: '打火机',
+    desc: '一按就有火苗，按多了就没有了。取暖、熏老鼠、点信号火都靠它。',
+    tags: ['tool'],
+    cost: 2,
+    maxAtStart: 1,
+  },
+  {
+    id: 'duct_tape',
+    name: '胶带',
+    desc: '世界上一半的问题都能用胶带解决，另一半需要更多胶带。',
+    tags: ['tool'],
+    cost: 2,
+    maxAtStart: 2,
+  },
+  {
+    id: 'bug_spray',
+    name: '杀虫喷雾',
+    desc: '标签上画着一只死得很安详的蟑螂。对付虫子和老鼠都有一手。',
+    tags: ['tool'],
+    cost: 2,
+    maxAtStart: 1,
+  },
+  {
+    id: 'rope',
+    name: '绳索',
+    desc: '一捆结实的登山绳。拉人、吊东西、下竖井都用得上。',
+    tags: ['tool'],
+    cost: 2,
+    maxAtStart: 1,
+  },
+  {
+    id: 'flare',
+    name: '信号弹',
+    desc: '红色的手持信号弹，只能用一次。点燃后几公里外都看得见。',
+    tags: ['tool'],
+  },
+  {
     id: 'generator_part',
     name: '发电机零件',
-    desc: '一块沉甸甸的核心部件。自救计划需要它。',
+    desc: '一块沉甸甸的核心部件。自救计划需要它，听说变电站里还有。',
     tags: ['part'],
   },
   {
     id: 'water_filter',
     name: '滤水芯',
-    desc: '能把脏水变回水的神奇圆筒。自救计划需要它。',
+    desc: '能把脏水变回水的神奇圆筒。自救计划需要它，自来水厂的过滤车间里或许还有。',
     tags: ['part'],
   },
   {
     id: 'seed_pack',
     name: '种子包',
-    desc: '希望的种子，字面意义上的。自救计划需要它。',
+    desc: '希望的种子，字面意义上的。自救计划需要它，植物园温室的育苗室里应该有。',
+    tags: ['part'],
+  },
+  {
+    id: 'vent_filter',
+    name: '通风滤网',
+    desc: '一张积满灰的工业滤网。自救计划需要它，地铁站的通风竖井里装着这种东西。',
     tags: ['part'],
   },
 ] satisfies ItemDef[];

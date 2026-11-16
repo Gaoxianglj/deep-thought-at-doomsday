@@ -17,5 +17,41 @@ export const targets: GuardrailConfig = {
   referenceBot: 'sensible',
   maxTimeoutRate: 0.15,
   requireAllEventsTrigger: true,
-  ranges: [],
+  // 数值平衡后的回归护栏（docs/DESIGN.md 12.9）：范围比实测略宽，越界说明平衡被改动了
+  ranges: [
+    { bot: 'random', metric: 'winRate', max: 0.03, note: '乱玩不应通关' },
+    {
+      difficulty: 'easy',
+      bot: 'sensible',
+      metric: 'winRate',
+      min: 0.38,
+      max: 0.58,
+      note: '简单：稳健玩家约一半通关',
+    },
+    {
+      difficulty: 'normal',
+      bot: 'sensible',
+      metric: 'winRate',
+      min: 0.22,
+      max: 0.4,
+      note: '普通：稳健玩家 25–40% 通关',
+    },
+    {
+      difficulty: 'hard',
+      bot: 'sensible',
+      metric: 'winRate',
+      min: 0.1,
+      max: 0.27,
+      note: '困难：稳健玩家 12–25% 通关',
+    },
+    {
+      difficulty: 'normal',
+      bot: 'sensible',
+      metric: 'daysMedian',
+      min: 18,
+      max: 34,
+      note: '普通：一局大约三四周',
+    },
+    { bot: 'sensible', metric: 'timeoutRate', max: 0.02, note: '不应出现能无限苟活的局' },
+  ],
 };

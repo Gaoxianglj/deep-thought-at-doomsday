@@ -1,13 +1,16 @@
 import type { RunState } from '../../engine';
 import type { Store } from '../store';
 
+/** 日记本右页的标签页 */
+export type JournalTab = 'notes' | 'history' | 'members';
+
 /** 庇护所画面上浮起的面板（同一时间最多一个） */
 export type Panel =
   | { kind: 'character'; id: string }
   | { kind: 'inventory'; tag?: string; item?: string }
   | { kind: 'item'; id: string }
   | { kind: 'expedition' }
-  | { kind: 'journal'; tab: 'history' | 'members' }
+  | { kind: 'journal'; tab: JournalTab }
   | { kind: 'menu' };
 
 export interface PanelCtx {

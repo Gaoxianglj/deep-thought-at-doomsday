@@ -846,6 +846,60 @@
   color: var(--ink);
 }
 
+.red-dot--tab {
+  width: calc(var(--u) * 9);
+  height: calc(var(--u) * 9);
+  margin-left: var(--s1);
+  border-width: var(--line-thin);
+  vertical-align: top;
+}
+
+/* 备忘：贴在书页上的便签 */
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s2) var(--s1) var(--s1);
+}
+
+.note-card {
+  position: relative;
+  padding: calc(var(--u) * 12) var(--s3) var(--s2);
+  border: var(--line-thin) solid var(--ink);
+  border-radius: calc(var(--u) * 3) calc(var(--u) * 3) var(--r-sm) calc(var(--u) * 3);
+  background: var(--lamp-tint);
+  box-shadow: 0 calc(var(--u) * 2) 0 rgb(74 51 36 / 0.35);
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 15);
+  line-height: calc(var(--u) * 22);
+  color: #5b3a22;
+  transform: rotate(-0.6deg);
+}
+
+.note-card--1 {
+  background: var(--sage-soft);
+  transform: rotate(0.5deg);
+}
+
+.note-card--2 {
+  background: var(--mist-soft);
+  transform: rotate(-0.3deg);
+}
+
+/* 胶带 */
+.note-card::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--u) * -7);
+  left: 50%;
+  width: calc(var(--u) * 46);
+  height: calc(var(--u) * 13);
+  margin-left: calc(var(--u) * -23);
+  background: rgb(255 250 240 / 0.72);
+  border: var(--line-thin) solid rgb(74 51 36 / 0.25);
+  transform: rotate(-3deg);
+}
+
 .history__day + .history__day {
   margin-top: var(--s1);
 }

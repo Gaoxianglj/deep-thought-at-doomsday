@@ -82,6 +82,7 @@ UI / sim:  applyAction(state, action, content)
 - [ ] `src/validation/validate.ts`：`COND_PRIMARY` 数组加新键（用于把 zod 报错翻译成"未知条件种类"）；`cond()` 函数加分支，检查其中的 id 引用（`ref('类别', id, path, '条件 xxx')`）；若它读 flag 之类要参与可达性收集，在此登记。
 - [ ] 若新条件依赖上下文（如外出上下文），在 `docs` 里写清哪里可用；必要时在 `Scope` 增字段。
 - [ ] `CLAUDE.md` 4.2 条件表加一行。
+- [ ] 若条件会出现在外出相关位置，确认 `src/sim/bots.ts` 的目标评估（假想外出计划下求值）能正确处理它。
 - [ ] 测试：`tests/engine/` 用 `makeEnv` 构造场景直接 `evalCondition`；`tests/validation/validate.test.ts` 加"引用不存在时报错"。
 
 ### 3.2 新增效果种类
@@ -189,7 +190,23 @@ UI / sim:  applyAction(state, action, content)
 - [ ] 注意 `once` / `cooldown` 用 `run.day - lastDay <= cooldown`，同一天抽两次要想清楚是否允许重复；`drawRandomEvent` 每次都会为所有候选事件绑角色（消耗随机数）。
 - [ ] 测试：`tests/engine/game.test.ts` 的事件抽取用例。
 
+### 3.11 实例：flag 驱动的随机目标（阶段 1 加的一组机制，可作为照抄的范本）
+
+这组机制让"每局不同的目标"完全落在数据里，引擎只认识"flag 里存了一个 id"：
+
+| 部件                                           | 位置                                                        | 要点                                                                                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 条件 `atFlag` / `hasFlagItem`                  | `schema.ts` 联合 + `conditions.ts` 分支                     | flag 不是字符串时一律为假                                                                                                               |
+| 效果 `flagItem` / `pickFlags`                  | `effects.ts`                                                | `pickFlags` 用 `nextFloat(run)` 洗牌，同种子可复现；`flagItem` 对非物品 id 静默无效                                                     |
+| 文案 `{flag:}` `{flagItem:}` `{flagLocation:}` | `context.ts` 的 `formatText`                                | 解析不了时原样保留，校验脚本负责报错                                                                                                    |
+| 备忘 `notes` / `getNotes(env)`                 | `schema.ts` 新内容类别（可选键）、`content.ts`、`events.ts` | `when` 求值没有 self；界面与文本试玩都调用 `getNotes`                                                                                   |
+| 校验                                           | `validate.ts`                                               | flag 被当作物品/地点读时（`flagAs`），收集所有写入它的字符串值（`flagValue`）并逐个检查是否存在于该类别；同一 flag 不能既当物品又当地点 |
+
+机器人怎么"理解"这些目标而不写内容 id：在 `src/sim/bots.ts` 里对每个候选外出计划，用 `evalCondition(env, { self, expedition: plan }, rule.when)` 检查全局 `expeditionReturn` 规则与地点 `specials`，命中就视为"有目标"。
+
 ## 4. 常见陷阱
+
+- **延时事件会继承角色**：`queueEvent` 把当前的 `self` 与 roles 一起排进队列；到期时只要其中任何一个已经死亡/离队，这个事件就被**静默丢弃**。关键剧情（如结局线的下一步）若可能在等待期间失去角色，要么从没有角色的上下文里排队，要么像 `maps.ts` 的 `train_countdown` 那样用数字 flag 倒计时、到期时由地图规则（无 self）再排一次。
 
 1. **在会被反复求值的位置用 `chance`**：`getEventView` 每次渲染都会重新求值选项的 `requires`；结局 `when` 一天内被检查多次（入夜后、进入计划阶段、看完事件结果后）；`enterWhen` / `exitWhen` 每晚求值。`chance` 每次求值都推进随机数并重新掷骰，会出现"按钮闪烁"或概率被放大。随机应放在 `outcomes` 的权重、`random` 效果或 trigger 规则的 `chance` 字段里。
 2. **`getModifier` 的 `subject` 与 `scope`**：`subject` = 这次计算关于谁（外出键传外出者，`event.*` 不传）。全局来源（地图/难度/天气/库存道具）**总是**参与，其 `modifier.scope` 被忽略，`when` 里的 `self` = subject；角色来源（特性/状态）：`scope: 'self'`（默认）只有当 `subject` 是它自己时参与，`scope: 'global'` 对所有计算参与但该角色须在庇护所。因此"只有持有者受益的道具"做不到。外出者携带的道具不在库存里，其规则暂时失效。

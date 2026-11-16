@@ -1,8 +1,9 @@
 /**
  * 日记本面板（书本造型，左右两页）：左页"今天"——当天的日记（手写感）和其他日志；
- * 右页可切换"往日记录"（按天分组）与"成员"（全体成员状态一览）。底部：沿用昨天的配给、结束这一天。
+ * 右页可切换"备忘"（任务进度与线索，引擎 getNotes）、"往日记录"（按天分组）与"成员"（全体成员状态一览）。
+ * 有备忘时默认翻到备忘页。底部：沿用昨天的配给、结束这一天。
  */
-import { shelterIds, type LogEntry } from '../../engine';
+import { getNotes, shelterIds, type Content, type LogEntry, type RunState } from '../../engine';
 import { modalFrame } from '../dialog';
 import { button, cssToken, h } from '../dom';
 import {
@@ -14,7 +15,22 @@ import {
   whereBadge,
 } from '../components/widgets';
 import { fmt, T } from '../text';
-import type { PanelCtx } from './types';
+import type { JournalTab, PanelCtx } from './types';
+
+/** 当前的备忘（在副本上求值：条件里的 chance 会推进随机数，不能动真实状态） */
+export function currentNotes(content: Content, run: RunState): { id: string; text: string }[] {
+  return getNotes({ run: structuredClone(run), content });
+}
+
+/** 备忘内容的签名：变化即视为"有新备忘" */
+export function notesSignature(notes: { id: string; text: string }[]): string {
+  return notes.map((n) => `${n.id}\u0000${n.text}`).join('\u0001');
+}
+
+/** 打开日记本时默认的标签页：有备忘就翻到备忘 */
+export function defaultJournalTab(content: Content, run: RunState): JournalTab {
+  return currentNotes(content, run).length ? 'notes' : 'history';
+}
 
 function entry(e: LogEntry): HTMLElement {
   if (e.kind === 'diary') return h('li', { class: 'log-entry log-entry--diary' }, e.text);
@@ -56,6 +72,21 @@ function historyPage(ctx: PanelCtx): HTMLElement {
         { class: 'history__day' },
         h('h4', { class: 'page__sub' }, fmt(T.run.logDay, { day: d })),
         h('ul', { class: 'log-list' }, run.log.filter((e) => e.day === d).map(entry)),
+      ),
+    ),
+  );
+}
+
+function notesPage(notes: { id: string; text: string }[]): HTMLElement {
+  if (!notes.length) return emptyNote(T.run.journalNotesEmpty);
+  return h(
+    'ul',
+    { class: 'notes' },
+    notes.map((n, i) =>
+      h(
+        'li',
+        { class: ['note-card', `note-card--${i % 3}`], attrs: { 'data-note': n.id } },
+        n.text,
       ),
     ),
   );
@@ -104,9 +135,14 @@ function membersPage(ctx: PanelCtx): HTMLElement {
   );
 }
 
-export function journalPanel(ctx: PanelCtx, tab: 'history' | 'members'): HTMLElement {
+export function journalPanel(
+  ctx: PanelCtx,
+  tab: JournalTab,
+  opts: { notesUnread?: boolean } = {},
+): HTMLElement {
   const { store, run } = ctx;
-  const tabBtn = (t: 'history' | 'members', text: string): HTMLElement =>
+  const notes = currentNotes(store.content, run);
+  const tabBtn = (t: JournalTab, text: string, dot = false): HTMLElement =>
     h(
       'button',
       {
@@ -116,6 +152,11 @@ export function journalPanel(ctx: PanelCtx, tab: 'history' | 'members'): HTMLEle
         fkey: `journal-tab-${t}`,
       },
       text,
+      dot &&
+        h('span', {
+          class: 'red-dot red-dot--inline red-dot--tab',
+          attrs: { role: 'img', 'aria-label': T.run.journalNotesNew },
+        }),
     );
 
   const right = h(
@@ -124,10 +165,11 @@ export function journalPanel(ctx: PanelCtx, tab: 'history' | 'members'): HTMLEle
     h(
       'div',
       { class: 'book-tabs', attrs: { role: 'tablist' } },
+      tabBtn('notes', T.run.journalNotes, tab !== 'notes' && !!opts.notesUnread),
       tabBtn('history', T.run.journalHistory),
       tabBtn('members', T.run.journalMembers),
     ),
-    tab === 'history' ? historyPage(ctx) : membersPage(ctx),
+    tab === 'notes' ? notesPage(notes) : tab === 'history' ? historyPage(ctx) : membersPage(ctx),
   );
 
   return modalFrame(

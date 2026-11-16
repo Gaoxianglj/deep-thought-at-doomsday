@@ -8,7 +8,7 @@ import { button, h } from '../dom';
 import { characterPanel } from '../panels/character';
 import { expeditionPanel, resetExpeditionDraft } from '../panels/expedition';
 import { inventoryPanel, itemPanel } from '../panels/inventory';
-import { journalPanel } from '../panels/journal';
+import { currentNotes, defaultJournalTab, journalPanel, notesSignature } from '../panels/journal';
 import { menuPanel } from '../panels/menu';
 import type { Panel, PanelCtx } from '../panels/types';
 import { artImg } from '../art';
@@ -26,16 +26,42 @@ interface ShelterUi {
   seen: number;
   /** 上次渲染时各配给标签的数量（变化时跳一下） */
   counts: Record<string, number>;
+  /** 已在日记本里看过的备忘签名（跨天保留，换局重置；空串 = 还没看过） */
+  notesSeen: string;
+  /** 本次渲染时的备忘签名 */
+  notesNow: string;
 }
 
-let ui: ShelterUi = { key: '', panel: null, animate: false, seen: -1, counts: {} };
+let ui: ShelterUi = {
+  key: '',
+  panel: null,
+  animate: false,
+  seen: -1,
+  counts: {},
+  notesSeen: '',
+  notesNow: '',
+};
 
 function sync(run: RunState): void {
   const key = `${run.seed}:${run.day}`;
   if (ui.key !== key) {
-    ui = { key, panel: null, animate: false, seen: -1, counts: ui.counts };
+    const sameRun = ui.key.startsWith(`${run.seed}:`);
+    ui = {
+      key,
+      panel: null,
+      animate: false,
+      seen: -1,
+      counts: ui.counts,
+      notesSeen: sameRun ? ui.notesSeen : '',
+      notesNow: '',
+    };
     resetExpeditionDraft();
   }
+}
+
+/** 有没看过的备忘（内容变了也算） */
+function notesUnread(): boolean {
+  return ui.notesNow !== '' && ui.notesNow !== ui.notesSeen;
 }
 
 function todayLogCount(run: RunState): number {
@@ -44,7 +70,7 @@ function todayLogCount(run: RunState): number {
 
 function hasUnread(run: RunState): boolean {
   const n = todayLogCount(run);
-  return n > 0 && n > ui.seen;
+  return (n > 0 && n > ui.seen) || notesUnread();
 }
 
 // ---------- 配给 ----------
@@ -198,7 +224,7 @@ function hud(store: Store, run: RunState, ctx: PanelCtx, hasScene: boolean): HTM
               latest.text,
             ),
           ],
-          () => ctx.open({ kind: 'journal', tab: 'history' }),
+          () => ctx.open({ kind: 'journal', tab: defaultJournalTab(content, run) }),
           {
             class: ['ticker', unread && 'ticker--unread'],
             fkey: 'hud-ticker',
@@ -235,7 +261,7 @@ function hud(store: Store, run: RunState, ctx: PanelCtx, hasScene: boolean): HTM
           }),
           button(
             [T.run.journalTitle, unread && h('span', { class: 'red-dot red-dot--inline' })],
-            () => ctx.open({ kind: 'journal', tab: 'history' }),
+            () => ctx.open({ kind: 'journal', tab: defaultJournalTab(content, run) }),
             {
               class: 'btn btn--wood',
               fkey: 'hud-journal',
@@ -261,7 +287,7 @@ function renderPanel(ctx: PanelCtx, panel: Panel): HTMLElement {
     case 'expedition':
       return expeditionPanel(ctx);
     case 'journal':
-      return journalPanel(ctx, panel.tab);
+      return journalPanel(ctx, panel.tab, { notesUnread: notesUnread() });
     case 'menu':
       return menuPanel(ctx);
   }
@@ -273,8 +299,13 @@ export function render(root: HTMLElement, store: Store): void {
   const { content } = store;
   sync(run);
 
-  // 打开日记本即视为已读
-  if (ui.panel?.kind === 'journal') ui.seen = todayLogCount(run);
+  ui.notesNow = notesSignature(currentNotes(content, run));
+  // 打开日记本即视为日志已读；翻到备忘页才算备忘已读
+  if (ui.panel?.kind === 'journal') {
+    ui.seen = todayLogCount(run);
+    if (ui.panel.tab === 'notes') ui.notesSeen = ui.notesNow;
+  }
+  const openJournal = () => ctx.open({ kind: 'journal', tab: defaultJournalTab(content, run) });
 
   const ctx: PanelCtx = {
     store,
@@ -313,7 +344,7 @@ export function render(root: HTMLElement, store: Store): void {
       onStock: (tag) => ctx.open({ kind: 'inventory', tag }),
       onProp: (id) => ctx.open({ kind: 'item', id }),
       onExpedition: () => ctx.open({ kind: 'expedition' }),
-      onJournal: () => ctx.open({ kind: 'journal', tab: 'history' }),
+      onJournal: openJournal,
     },
     () => store.touch(),
   );

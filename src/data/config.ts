@@ -4,7 +4,14 @@ export const config = {
   rationTags: ['food', 'water'],
   logKeepDays: 7,
   fallbackEnding: 'wiped',
-  tagNames: { food: '食物', water: '饮水', medicine: '药品', tool: '工具', part: '部件' },
+  tagNames: {
+    food: '食物',
+    water: '饮水',
+    medicine: '药品',
+    tool: '工具',
+    part: '部件',
+    rice: '大米',
+  },
   texts: {
     death: '{self} 倒下了，再也没能站起来。',
     statusEnter: '{self} 进入了「{status}」状态。',

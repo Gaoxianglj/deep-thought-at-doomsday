@@ -9,6 +9,7 @@
 import {
   applyAction,
   getEventView,
+  getNotes,
   newRun,
   pointsCost,
   shelterIds,
@@ -155,6 +156,11 @@ export function describeState(content: Content, run: RunState): string {
   for (const [id] of inv) {
     const desc = content.items.get(id)?.desc;
     if (desc) out.push(`    · ${content.items.get(id)?.name}: ${desc}`);
+  }
+  const notes = getNotes({ run: structuredClone(run), content });
+  if (notes.length) {
+    out.push('  备忘（日记本里记下的任务进度与线索）:');
+    for (const n of notes) out.push(`    ✎ ${n.text}`);
   }
 
   if (run.phase === 'ended') {

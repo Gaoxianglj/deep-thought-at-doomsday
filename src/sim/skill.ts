@@ -21,6 +21,7 @@ export function sampleOverrides(rng: () => number): Partial<Policy> {
     exploreWhenSafe: rng() < 0.6,
     exploreMinHome: int(0, 2),
     dangerWeight: +range(0, 10).toFixed(1),
+    goalWeight: +range(0, 10).toFixed(1),
   };
 }
 

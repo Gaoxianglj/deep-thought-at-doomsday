@@ -24,18 +24,26 @@ export const scenes = [
       { tag: 'water', x: 8, y: 41, w: 29, h: 10, max: 12 },
     ],
     props: {
-      // 木架顶上
-      generator_part: { x: 12, y: 17.5, w: 7 },
-      water_filter: { x: 21, y: 17.5, w: 5 },
-      seed_pack: { x: 29, y: 17.5, w: 5 },
-      // 木架最下层
-      map_book: { x: 12, y: 61.5, w: 6 },
-      gas_mask: { x: 19.5, y: 61.5, w: 6 },
-      flashlight: { x: 26.5, y: 61.5, w: 5 },
-      crowbar: { x: 33.5, y: 61.5, w: 6.5 },
+      // 木架顶上：四个自救部件
+      generator_part: { x: 11, y: 17.5, w: 6.5 },
+      water_filter: { x: 19.5, y: 17.5, w: 4.5 },
+      seed_pack: { x: 27, y: 17.5, w: 4.5 },
+      vent_filter: { x: 34.5, y: 17.5, w: 5 },
+      // 木架最下层：工具
+      map_book: { x: 8.5, y: 61.5, w: 4.5 },
+      gas_mask: { x: 13.5, y: 61.5, w: 5 },
+      flashlight: { x: 19, y: 61.5, w: 4.5 },
+      crowbar: { x: 24.5, y: 61.5, w: 5.5 },
+      duct_tape: { x: 29.5, y: 61.5, w: 3.2 },
+      bug_spray: { x: 33.2, y: 61.5, w: 2.6 },
+      lighter: { x: 36.6, y: 61.5, w: 2 },
+      // 木架右侧地上：一卷绳索
+      rope: { x: 42, y: 68, w: 5 },
       // 桌面
       playing_cards: { x: 59, y: 45.5, w: 3.5 },
       radio: { x: 64.5, y: 45.5, w: 6.5 },
+      // 舱门旁的地上
+      flare: { x: 69, y: 70, w: 2.4 },
       // 舱门上
       door_lock: { x: 75.5, y: 45, w: 4 },
     },

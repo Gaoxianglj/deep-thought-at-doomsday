@@ -24,7 +24,7 @@ const HELP = `用法: npm run play -- <命令> [选项]
 命令:
   info                  列出可选的伙伴、物资、点数（开局前先看这个）
   new                   开新局：--party <伙伴,伙伴> --items <物品=数量,...>，或 --auto 自动配置
-  show                  显示当前局面与可用操作
+  show                  显示当前局面与可用操作（含"备忘"：任务进度与线索，等同界面日记本的备忘页）
   act <命令>            执行操作，可用 ; 连续执行多条（遇错即停）:
                         act choose 1 / act "ration 阿尔法 食物 罐头; ration 阿尔法 饮水 瓶装水; end"
   note <文字>           记下一条试玩感想（会附在 report 里）

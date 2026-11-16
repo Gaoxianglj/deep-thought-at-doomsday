@@ -95,46 +95,50 @@ sim → engine        validation → engine
 
 ### 4.2 条件 Condition
 
-| 写法                                               | 含义                         | 注意                                                                              |
-| -------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------- |
-| `{ all: [...] }` / `{ any: [...] }` / `{ not: c }` | 与 / 或 / 非                 | 空 `all` 为真，空 `any` 为假                                                      |
-| `{ stat: 'satiety', of, gte/gt/lte/lt/eq }`        | 属性比较                     | 多个比较键同时写则需全部满足                                                      |
-| `{ hasStatus: 'sick', of }`                        | 目标身上有该状态             |                                                                                   |
-| `{ hasItem: 'radio', count?: 1 }`                  | 库存中该物品数量 ≥ count     | 外出中携带的物品不在库存里                                                        |
-| `{ hasTag: 'food', count?: 1 }`                    | 带该标签的物品总数 ≥ count   | tag 不校验是否存在                                                                |
-| `{ carrying: 'crowbar' }`                          | 本次外出携带了该物品         | 仅外出上下文有意义（specials、`requires`、外出修正）；其余回退到 `run.expedition` |
-| `{ at: 'pharmacy' }`                               | 本次外出的地点               | 同上                                                                              |
-| `{ flag: 'x', is?, gte/gt/lte/lt/eq }`             | 标记判断                     | 只写 `flag` = 真值；写 `is` = 严格相等；写比较键 = 按数字比（非数字当 0）         |
-| `{ day: { gte?, lte?, ... } }`                     | 当前天数                     |                                                                                   |
-| `{ inParty: 'id' }`                                | 角色在队伍中且活着           | 含外出中                                                                          |
-| `{ inShelter: 'id' }`                              | 角色此刻在庇护所             |                                                                                   |
-| `{ unlocked: 'id' }`                               | 局外已解锁（`run.unlocked`） |                                                                                   |
-| `{ partyAlive: { ... } }`                          | 活着的队员数（含外出）       |                                                                                   |
-| `{ shelterCount: { ... } }`                        | 此刻在庇护所的活人数         |                                                                                   |
-| `{ map: 'id' }` / `{ difficulty: 'id' }`           | 当前地图 / 难度              | 事件、日记限定地图就靠 `map`                                                      |
-| `{ weather: 'id' }`                                | 当前天气                     | 天气 id 必须在 `weathers` 里存在，否则校验报错                                    |
-| `{ chance: 0.25 }`                                 | 掷骰                         | **每次求值都重掷**，不要放在会被反复检查的位置                                    |
+| 写法                                               | 含义                                | 注意                                                                                              |
+| -------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `{ all: [...] }` / `{ any: [...] }` / `{ not: c }` | 与 / 或 / 非                        | 空 `all` 为真，空 `any` 为假                                                                      |
+| `{ stat: 'satiety', of, gte/gt/lte/lt/eq }`        | 属性比较                            | 多个比较键同时写则需全部满足                                                                      |
+| `{ hasStatus: 'sick', of }`                        | 目标身上有该状态                    |                                                                                                   |
+| `{ hasItem: 'radio', count?: 1 }`                  | 库存中该物品数量 ≥ count            | 外出中携带的物品不在库存里                                                                        |
+| `{ hasTag: 'food', count?: 1 }`                    | 带该标签的物品总数 ≥ count          | tag 不校验是否存在                                                                                |
+| `{ carrying: 'crowbar' }`                          | 本次外出携带了该物品                | 仅外出上下文有意义（specials、`requires`、外出修正）；其余回退到 `run.expedition`                 |
+| `{ at: 'pharmacy' }`                               | 本次外出的地点                      | 同上                                                                                              |
+| `{ flag: 'x', is?, gte/gt/lte/lt/eq }`             | 标记判断                            | 只写 `flag` = 真值；写 `is` = 严格相等；写比较键 = 按数字比（非数字当 0）                         |
+| `{ day: { gte?, lte?, ... } }`                     | 当前天数                            |                                                                                                   |
+| `{ inParty: 'id' }`                                | 角色在队伍中且活着                  | 含外出中                                                                                          |
+| `{ inShelter: 'id' }`                              | 角色此刻在庇护所                    |                                                                                                   |
+| `{ unlocked: 'id' }`                               | 局外已解锁（`run.unlocked`）        |                                                                                                   |
+| `{ partyAlive: { ... } }`                          | 活着的队员数（含外出）              |                                                                                                   |
+| `{ shelterCount: { ... } }`                        | 此刻在庇护所的活人数                |                                                                                                   |
+| `{ map: 'id' }` / `{ difficulty: 'id' }`           | 当前地图 / 难度                     | 事件、日记限定地图就靠 `map`                                                                      |
+| `{ weather: 'id' }`                                | 当前天气                            | 天气 id 必须在 `weathers` 里存在，否则校验报错                                                    |
+| `{ atFlag: 'trail_1' }`                            | 本次外出的地点 = flag 里存的地点 id | 配合 `pickFlags` 做每局随机的目的地；仅外出上下文有意义（全局 `expeditionReturn` 规则、specials） |
+| `{ hasFlagItem: 'evac_item', count?: 1 }`          | 库存里有 flag 所指的物品            | flag 里存的是物品 id；未设置或不是字符串时为假                                                    |
+| `{ chance: 0.25 }`                                 | 掷骰                                | **每次求值都重掷**，不要放在会被反复检查的位置                                                    |
 
 事件 / 日记 / 结局的顶层 `when` 求值时**没有 `self`**（`of: 'self'` 无目标 → 条件为假）；要判断角色请放进 `roles.x.where`。
 
 ### 4.3 效果 Effect
 
-| 写法                                              | 含义                                                                                                                                                                                                                   |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `{ stat, of, add?, set? }`                        | 改属性，自动钳制到 `[min, max]`；`add` 与 `set` 至少一个（校验）；**正数 add 会乘 `scope.gainMul`**（物品使用时的 `item.<tag>.useEffect`）                                                                             |
-| `{ addStatus, of, duration?, chance? }`           | 施加状态（已有则刷新较长的持续时间）；成功概率 = 修正后的 `status.<id>.gainChance`（基础值为 `chance ?? 1`）；`duration` 优先于状态定义的 duration；没过判定时写 `statusResisted` 日志（所以结果文案别断言"一定中招"） |
-| `{ removeStatus, of }`                            | 移除状态（触发 `onExit`）                                                                                                                                                                                              |
-| `{ item, add }`                                   | 库存增减，不低于 0；不存在的物品 id 静默忽略                                                                                                                                                                           |
-| `{ loseRandomItem: { tag?, count? } }`            | 随机丢 `count`（默认 1）件，按库存数量加权；**把丢失物品名写入 `{lost}`**，供之后同一效果列表里的 `log` 与事件结果文案使用                                                                                             |
-| `{ setFlag, value }` / `{ addFlag, add }`         | 设置标记 / 数字标记累加（不存在当 0）                                                                                                                                                                                  |
-| `{ joinParty }`                                   | 角色加入本局（已在队伍或曾经在则忽略，不复活）                                                                                                                                                                         |
-| `{ leaveParty, reason: 'dead' \| 'gone', text? }` | 目标离队；`text` 是日志模板（只有 `{self}` 和角色/物品变量，运行时**没有** `{lost}`）；不写 `text` 且 `dead` 时用 `config.texts.death`；外出者离队则外出作废                                                           |
-| `{ unlock }`                                      | 局外解锁角色（写入 `run.unlocked` 与 `newUnlocks`，存档层并入档案）                                                                                                                                                    |
-| `{ queueEvent, delay? }`                          | 把事件排到 `当前天 + delay`（默认 0）的清晨；沿用当前 `self` 与 roles；**排队事件不检查其 `when`**                                                                                                                     |
-| `{ ending }`                                      | 触发结局（已有结局则忽略）；`phase` 在待处理事件处理完后变 `ended`                                                                                                                                                     |
-| `{ log, kind? }`                                  | 写一条日志（kind 默认 `info`），按文案模板渲染                                                                                                                                                                         |
-| `{ if, then, else? }`                             | 条件分支                                                                                                                                                                                                               |
-| `{ random: [{ weight?, effects }] }`              | 按权重选一支执行（至少 1 支）                                                                                                                                                                                          |
+| 写法                                                         | 含义                                                                                                                                                                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{ stat, of, add?, set? }`                                   | 改属性，自动钳制到 `[min, max]`；`add` 与 `set` 至少一个（校验）；**正数 add 会乘 `scope.gainMul`**（物品使用时的 `item.<tag>.useEffect`）                                                                             |
+| `{ addStatus, of, duration?, chance? }`                      | 施加状态（已有则刷新较长的持续时间）；成功概率 = 修正后的 `status.<id>.gainChance`（基础值为 `chance ?? 1`）；`duration` 优先于状态定义的 duration；没过判定时写 `statusResisted` 日志（所以结果文案别断言"一定中招"） |
+| `{ removeStatus, of }`                                       | 移除状态（触发 `onExit`）                                                                                                                                                                                              |
+| `{ item, add }`                                              | 库存增减，不低于 0；不存在的物品 id 静默忽略                                                                                                                                                                           |
+| `{ loseRandomItem: { tag?, count? } }`                       | 随机丢 `count`（默认 1）件，按库存数量加权；**把丢失物品名写入 `{lost}`**，供之后同一效果列表里的 `log` 与事件结果文案使用                                                                                             |
+| `{ setFlag, value }` / `{ addFlag, add }`                    | 设置标记 / 数字标记累加（不存在当 0）                                                                                                                                                                                  |
+| `{ joinParty }`                                              | 角色加入本局（已在队伍或曾经在则忽略，不复活）                                                                                                                                                                         |
+| `{ leaveParty, reason: 'dead' \| 'gone', text? }`            | 目标离队；`text` 是日志模板（只有 `{self}` 和角色/物品变量，运行时**没有** `{lost}`）；不写 `text` 且 `dead` 时用 `config.texts.death`；外出者离队则外出作废                                                           |
+| `{ unlock }`                                                 | 局外解锁角色（写入 `run.unlocked` 与 `newUnlocks`，存档层并入档案）                                                                                                                                                    |
+| `{ queueEvent, delay? }`                                     | 把事件排到 `当前天 + delay`（默认 0）的清晨；沿用当前 `self` 与 roles；**排队事件不检查其 `when`**                                                                                                                     |
+| `{ ending }`                                                 | 触发结局（已有结局则忽略）；`phase` 在待处理事件处理完后变 `ended`                                                                                                                                                     |
+| `{ log, kind? }`                                             | 写一条日志（kind 默认 `info`），按文案模板渲染                                                                                                                                                                         |
+| `{ if, then, else? }`                                        | 条件分支                                                                                                                                                                                                               |
+| `{ flagItem: 'evac_item', add: -1 }`                         | 增减 flag 所指的物品（flag 里存物品 id；不是有效物品则无效果）                                                                                                                                                         |
+| `{ pickFlags: { flags: ['t1','t2'], from: ['a','b','c'] } }` | 从 `from` 里不重复地随机挑选，依次写入各 flag（`from` 须不少于 `flags`）。每局随机的目标地点 / 需要的道具就靠它                                                                                                        |
+| `{ random: [{ weight?, effects }] }`                         | 按权重选一支执行（至少 1 支）                                                                                                                                                                                          |
 
 ### 4.4 规则 Rule 与修正 Modifier
 
@@ -185,20 +189,21 @@ sim → engine        validation → engine
 
 模板由 `formatText` 渲染：`{self}`、`{角色名}`（绑定的 role）、`{item:物品id}`、`{day}`，以及上下文变量。无法解析的占位符**原样保留**，校验脚本会报错。
 
-| 位置                                               | 可用变量                                                                                   |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 事件 `title` / `text` / 选项 `text`                | `{self}`（若有 `self` 角色）、`{<roles 中定义的名字>}`、`{item:id}`、`{day}`               |
-| 选项 `requiresHint`                                | 引擎**不**套模板，别写占位符                                                               |
-| 结果 `text`、`log` 效果                            | 同上，再加 `{lost}`（来自本次执行中更早的 `loseRandomItem`；没有则保持原样，所以先丢后写） |
-| 日记 `text`                                        | `{<roles 中定义的名字>}`（常用 `{a}` `{b}`）、`{item:id}`、`{day}`；文本里不得直接写角色名 |
-| `StatDef.deathText`                                | `{self}`                                                                                   |
-| `leaveParty.text`                                  | `{self}`、`{item:id}`、`{day}`                                                             |
-| `config.texts.death`                               | `{self}`                                                                                   |
-| `statusEnter` / `statusExit` / `statusResisted`    | `{self}` `{status}`                                                                        |
-| `rationMissing`                                    | `{self}` `{item}`                                                                          |
-| `expeditionDepart` / `Return` / `Injured` / `Lost` | `{self}` `{location}` `{loot}` `{lootCount}`（`Depart` 时 `{loot}` 为空）                  |
-| `expeditionCancelled`                              | `{self}` `{location}`                                                                      |
-| `weatherChange`                                    | `{weather}`（天气名）                                                                      |
+| 位置                                               | 可用变量                                                                                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 事件 `title` / `text` / 选项 `text`                | `{self}`（若有 `self` 角色）、`{<roles 中定义的名字>}`、`{item:id}`、`{day}`                                                    |
+| 选项 `requiresHint`                                | 引擎**不**套模板，别写占位符                                                                                                    |
+| 结果 `text`、`log` 效果                            | 同上，再加 `{lost}`（来自本次执行中更早的 `loseRandomItem`；没有则保持原样，所以先丢后写）                                      |
+| 日记 `text`                                        | `{<roles 中定义的名字>}`（常用 `{a}` `{b}`）、`{item:id}`、`{day}`；文本里不得直接写角色名                                      |
+| `StatDef.deathText`                                | `{self}`                                                                                                                        |
+| `leaveParty.text`                                  | `{self}`、`{item:id}`、`{day}`                                                                                                  |
+| `config.texts.death`                               | `{self}`                                                                                                                        |
+| `statusEnter` / `statusExit` / `statusResisted`    | `{self}` `{status}`                                                                                                             |
+| `rationMissing`                                    | `{self}` `{item}`                                                                                                               |
+| `expeditionDepart` / `Return` / `Injured` / `Lost` | `{self}` `{location}` `{loot}` `{lootCount}`（`Depart` 时 `{loot}` 为空）                                                       |
+| `expeditionCancelled`                              | `{self}` `{location}`                                                                                                           |
+| `weatherChange`                                    | `{weather}`（天气名）                                                                                                           |
+| 以上所有位置（以及备忘）                           | 另可用 `{flag:x}`（flag 原值）、`{flagItem:x}`（flag 所指物品名）、`{flagLocation:x}`（flag 所指地点名）；flag 未设置时原样保留 |
 
 ### 4.6 每日流程顺序（`src/engine/day.ts`）
 
@@ -449,6 +454,20 @@ sim → engine        validation → engine
 - **界面文案**：`src/data/ui-text.ts`（`uiText`，占位符 `{name}` 由 UI 的 `fmt()` 填）；引擎错误码 → 中文说明在 `uiText.errors`，新增错误码必须在这里加一行，否则 UI 显示"操作无效（code）"。
 - **引擎自动日志文案**：`src/data/config.ts` 的 `texts`（键见 4.5）。缺省的键不写日志（校验给 warning）。
 
+### 5.10b 备忘（任务进度与线索）
+
+`src/data/notes.ts`，`{ id, text, when?, order? }`。`when` 成立时显示在日记本"备忘"页（文本试玩 `show` 里也有），`order` 小的在前。文案可用 4.5 的 flag 模板，没有 `self` / roles；`when` 里不要用 `chance`。凡是玩家需要记住的随机目标（本局要的凭证、下一个线索地点、还差多少物资），都应该有一条备忘。
+
+### 5.10c 每局随机的目标（三种写法）
+
+| 想要                 | 写法                                                                                                                                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 本局需要的道具随机   | 第 1 天清晨的地图规则 `{ trigger: 'dayStart', when: { not: { flag: 'evac_item' } }, effects: [{ pickFlags: { flags: ['evac_item'], from: [...物品 id] } }] }`；之后用 `hasFlagItem` / `flagItem` / `{flagItem:evac_item}`                                     |
+| 按随机顺序去随机地点 | 事件里 `pickFlags` 写 `trail_1..3`，用数字 flag 记步骤；地图规则 `{ trigger: 'expeditionReturn', when: { all: [{ flag: 'trail_step', eq: 1 }, { atFlag: 'trail_1' }] }, effects: [{ queueEvent: 'trail_clue_1' }] }`（delay 0 = 当天清晨弹出，self = 外出者） |
+| 分批上交物资         | `random` 效果随机设定数字 flag 作为需求量；选项 `requires` 用 `hasTag count` + flag 比较；结果 `loseRandomItem { tag, count }` + `addFlag` 负数；交齐的 outcome 直接 `{ ending }`，否则 `next` 回到同一事件允许连交                                           |
+
+flag 里存的 id 会被校验：一个 flag 若被当作地点读（`atFlag` / `{flagLocation:}`），写进它的每个值都必须是存在的地点 id；物品同理。
+
 ### 5.11 生成美术与摆放场景
 
 **生成流程**（用本机 ChatGPT 应用自带的 codex 命令行生图，消耗用户的 Codex 额度，约 2 分钟一张）：
@@ -464,27 +483,28 @@ sim → engine        validation → engine
 
 ## 6. "哪些改动必须改引擎"对照表
 
-| 需求举例                                         | 纯数据可做 / 需要改引擎                                                                                     |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| 新角色、特性、状态、道具、事件、日记、地点、结局 | 纯数据                                                                                                      |
-| 新属性（如"体温"）                               | 纯数据（`stats.ts`），UI 展示另看 `src/ui`                                                                  |
-| 新食物 / 药品 / 被动道具                         | 纯数据                                                                                                      |
-| 新地图、新难度、新天气、地图专属规则             | 纯数据（天气表、`map.rules`、`vehicle` 校验都已实现，见 5.8）                                               |
-| 现有数值的新影响方式（如"外出耗时 ×0.8"）        | 键已有则纯数据；键没有则改引擎：ENGINE_GUIDE 第 3.3 节（新增修正键）                                        |
-| 新的条件种类（如"某属性在全员中最低"）           | 改引擎：ENGINE_GUIDE 3.1                                                                                    |
-| 新的效果种类（如"交换两人物品"）                 | 改引擎：ENGINE_GUIDE 3.2                                                                                    |
-| 新的可被内容影响的数值（如"配给吃喝量"）         | 改引擎：3.3                                                                                                 |
-| 新的触发时机（如"事件结算后"）                   | 改引擎：3.4                                                                                                 |
-| 新的每日步骤（制作、建造、士气结算）             | 改引擎：3.5                                                                                                 |
-| 新的玩家动作（如"制作物品"）                     | 改引擎 + UI + 错误码：3.6                                                                                   |
-| 新的内容类别（如配方、建筑）                     | 改引擎、校验、sanitize、夹具：3.7                                                                           |
-| 给存档加字段                                     | 改引擎 + 可能迁移：3.8                                                                                      |
-| 新的引擎自动日志                                 | 改引擎：3.9                                                                                                 |
-| 多人同时外出                                     | 改引擎（`run.expedition` 是单个可空对象）+ 迁移 + UI + sim：3.10                                            |
-| 每天多个随机事件                                 | 改引擎（`eventRolled` 是布尔、`nextEvent` 只抽 1 次）：3.10                                                 |
-| 交通工具被占用/消耗/影响危险                     | 改引擎（目前只做"必须持有"校验）：3.10                                                                      |
-| 新的结局条件                                     | 多数纯数据（用 `flag` / `counter` 以外的现有条件组合）；要读 `run.counters` 等现有字段则需新条件种类（3.1） |
-| 条件里读 `run.counters`（外出次数、事件数）      | 改引擎（目前没有对应条件种类）：3.1                                                                         |
+| 需求举例                                            | 纯数据可做 / 需要改引擎                                                                                     |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 新角色、特性、状态、道具、事件、日记、地点、结局    | 纯数据                                                                                                      |
+| 新属性（如"体温"）                                  | 纯数据（`stats.ts`），UI 展示另看 `src/ui`                                                                  |
+| 新食物 / 药品 / 被动道具                            | 纯数据                                                                                                      |
+| 新地图、新难度、新天气、地图专属规则                | 纯数据（天气表、`map.rules`、`vehicle` 校验都已实现，见 5.8）                                               |
+| 现有数值的新影响方式（如"外出耗时 ×0.8"）           | 键已有则纯数据；键没有则改引擎：ENGINE_GUIDE 第 3.3 节（新增修正键）                                        |
+| 新的条件种类（如"某属性在全员中最低"）              | 改引擎：ENGINE_GUIDE 3.1                                                                                    |
+| 新的效果种类（如"交换两人物品"）                    | 改引擎：ENGINE_GUIDE 3.2                                                                                    |
+| 新的可被内容影响的数值（如"配给吃喝量"）            | 改引擎：3.3                                                                                                 |
+| 新的触发时机（如"事件结算后"）                      | 改引擎：3.4                                                                                                 |
+| 新的每日步骤（制作、建造、士气结算）                | 改引擎：3.5                                                                                                 |
+| 新的玩家动作（如"制作物品"）                        | 改引擎 + UI + 错误码：3.6                                                                                   |
+| 新的内容类别（如配方、建筑）                        | 改引擎、校验、sanitize、夹具：3.7                                                                           |
+| 给存档加字段                                        | 改引擎 + 可能迁移：3.8                                                                                      |
+| 新的引擎自动日志                                    | 改引擎：3.9                                                                                                 |
+| 多人同时外出                                        | 改引擎（`run.expedition` 是单个可空对象）+ 迁移 + UI + sim：3.10                                            |
+| 每天多个随机事件                                    | 改引擎（`eventRolled` 是布尔、`nextEvent` 只抽 1 次）：3.10                                                 |
+| 交通工具被占用/消耗/影响危险                        | 改引擎（目前只做"必须持有"校验）：3.10                                                                      |
+| 新的结局条件                                        | 多数纯数据（用 `flag` / `counter` 以外的现有条件组合）；要读 `run.counters` 等现有字段则需新条件种类（3.1） |
+| 每局随机的目标道具 / 地点、按顺序的地点链、分批上交 | 纯数据（`pickFlags` `atFlag` `hasFlagItem` `flagItem`，见 5.10c）                                           |
+| 条件里读 `run.counters`（外出次数、事件数）         | 改引擎（目前没有对应条件种类）：3.1                                                                         |
 
 ## 7. 测试与校验
 
