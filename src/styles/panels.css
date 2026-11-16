@@ -996,3 +996,17 @@
 .about__storage--warn {
   color: var(--brick-ink);
 }
+
+.place__risk {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.place__risk--high {
+  color: var(--brick-ink);
+}
+
+.exp-note {
+  margin-bottom: var(--s2);
+}

@@ -17,7 +17,7 @@ export const config = {
     statusEnter: '{self} 进入了「{status}」状态。',
     statusExit: '{self} 摆脱了「{status}」状态。',
     statusResisted: '{self} 扛住了「{status}」，没有受到影响。',
-    rationMissing: '{self} 想吃点东西，翻遍了仓库也没找到 {item}。',
+    rationMissing: '{self} 的配给没着落：仓库里已经没有 {item} 了。',
     expeditionDepart: '{self} 背起包出发了，目的地：{location}。',
     expeditionReturn: '{self} 从 {location} 回来了，带回 {lootCount} 件东西。{loot}',
     expeditionInjured: '{self} 挂着彩从 {location} 爬了回来，带回 {lootCount} 件东西。{loot}',

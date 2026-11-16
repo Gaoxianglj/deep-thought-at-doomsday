@@ -163,6 +163,10 @@ export const uiText = {
     expeditionBlocked: '无法外出（{status}）',
     expeditionDays: '往返 {n} 天',
     expeditionDanger: '危险度 {pct}%',
+    expeditionOnlyOne: '同一时间只能有一个人外出。',
+    expeditionDangerNote: '危险包括永久失踪：出事时可能受伤回来，也可能再也回不来。',
+    expeditionTripWarn:
+      '{name} 可能撑不到回来（预计返回时{stats}）。建议出发前先给 TA 吃喝：当晚的配给在出发前结算。',
     expeditionLocked: '条件不满足',
     expeditionConfirm: '确认外出计划',
     expeditionPickWho: '先选择外出的人',

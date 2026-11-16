@@ -277,3 +277,28 @@ describe('describeState 的备忘', () => {
     expect(describeState(content, newRun(content, setup))).not.toContain('备忘');
   });
 });
+
+describe('会话容错与配给超额', () => {
+  it('tryLoadRun：重放失败时返回失败前状态与步序号', async () => {
+    const { tryLoadRun, staleSessionMessage } = await import('../../src/sim/play');
+    const session: PlaySession = {
+      version: 1,
+      setup,
+      actions: [{ type: 'cancelExpedition' }, { type: 'cancelExpedition' }],
+      notes: [],
+    };
+    const res = tryLoadRun(content, session);
+    expect(res.failedAt).toBeDefined();
+    expect(res.run).toBeDefined();
+    expect(staleSessionMessage(2)).toContain('第 2 步');
+    expect(staleSessionMessage(0)).toContain('重新开局');
+  });
+  it('配给分配超过库存时 describeState 提醒', () => {
+    const run = asPlan(fresh());
+    const r1 = runCommand(content, run, 'ration alpha food can');
+    expect('run' in r1).toBe(true);
+    const lowStock: RunState = structuredClone((r1 as { run: RunState }).run);
+    lowStock.inventory.can = 0;
+    expect(describeState(content, lowStock)).toContain('配给超额');
+  });
+});

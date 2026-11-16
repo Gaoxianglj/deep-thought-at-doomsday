@@ -282,6 +282,10 @@
   line-height: 1.35;
 }
 
+.ticker__text--long {
+  -webkit-line-clamp: 4;
+}
+
 .ticker__text--hand {
   font-family: var(--font-hand);
   font-size: calc(var(--u) * 15);

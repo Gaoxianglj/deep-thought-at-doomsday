@@ -45,7 +45,7 @@ export const kiminaiEvents = [
         text: '欢迎加入',
         outcomes: [
           {
-            text: '{k} 很快就和大家打成一片，已经开始给大家科普每个罐头的保质期了。',
+            text: '{k} 很快就和大家打成一片，已经开始给大家科普屋里每样东西的保质期了。',
             effects: [{ stat: 'sanity', of: 'all', add: 5 }],
           },
         ],

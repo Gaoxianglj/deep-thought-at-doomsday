@@ -56,6 +56,32 @@ export function loadRun(content: Content, session: PlaySession): RunState {
   return run;
 }
 
+/** 容错版重放：遇到重放失败的动作就停下，返回停在失败前的状态与失败的步序号（从 1 数起） */
+export function tryLoadRun(
+  content: Content,
+  session: PlaySession,
+): { run: RunState; failedAt?: number; error?: string } {
+  let run: RunState;
+  try {
+    run = newRun(content, session.setup);
+  } catch (e) {
+    return { run: undefined as unknown as RunState, failedAt: 0, error: String(e) };
+  }
+  for (let i = 0; i < session.actions.length; i++) {
+    const res = applyAction(run, session.actions[i], content);
+    if (res.error) return { run, failedAt: i + 1, error: res.error };
+    run = res.state;
+  }
+  return { run };
+}
+
+/** 会话无法完整重放时给玩家看的说明 */
+export function staleSessionMessage(failedAt: number): string {
+  return failedAt === 0
+    ? '内容已变化，这个会话的开局设置已无法使用。note / report 仍可用；要继续玩请重新开局（new）。'
+    : `内容已变化，这个会话在第 ${failedAt} 步之后无法重放，所以无法显示或继续。note / report 仍可用（report 会标明失败位置）；要继续玩请重新开局（new）。`;
+}
+
 /** 校验开局设置；返回人话错误列表（空 = 合法） */
 export function checkSetup(
   content: Content,
@@ -68,6 +94,28 @@ export function checkSetup(
 // ---------- 渲染 ----------
 
 const dangerLevel = (danger: number) => Math.max(1, Math.min(5, Math.ceil(danger / 0.1 - 1e-9)));
+const DANGER_WORDS = [
+  '比较安全',
+  '有些风险',
+  '有风险，可能受伤',
+  '很危险，可能受伤甚至一去不回',
+  '极度危险，很可能一去不回',
+];
+
+/** 配给与外出携带共需超过库存的物品（文字提醒用） */
+export function rationOverages(content: Content, run: RunState): string[] {
+  const used = new Map<string, number>();
+  for (const id of run.plan.expedition?.carry ?? []) used.set(id, (used.get(id) ?? 0) + 1);
+  for (const cid of shelterIds(run))
+    for (const itemId of Object.values(run.plan.rations[cid] ?? {}))
+      used.set(itemId, (used.get(itemId) ?? 0) + 1);
+  return [...used]
+    .filter(([id, n]) => n > (run.inventory[id] ?? 0))
+    .map(
+      ([id, n]) =>
+        `${content.items.get(id)?.name ?? id}：已分配 ${n} 份，库存只有 ${run.inventory[id] ?? 0}（入夜时先到先得，后面的人会吃不到）`,
+    );
+}
 
 const tagLabel = (content: Content, tag: string) => content.config.tagNames?.[tag] ?? tag;
 
@@ -232,6 +280,7 @@ export function describeState(content: Content, run: RunState): string {
     );
     out.push(`    ${content.characters.get(id)?.name}: ${parts.join('  ')}`);
   }
+  for (const w of rationOverages(content, run)) out.push(`  ⚠ 配给超额 ${w}`);
 
   out.push('', '操作（名字或 id 都可以）:');
   for (const tag of content.config.rationTags) {
@@ -249,7 +298,9 @@ export function describeState(content: Content, run: RunState): string {
     out.push(`  use <物品> <角色>                  可用: ${itemList(content, usable)}`);
   if (!run.expedition && !planned && home.length) {
     const slots = content.maps.get(run.mapId)?.expedition.carrySlots ?? 0;
-    out.push(`  go <角色> <地点> [携带物,携带物]   可携带 ${slots} 件；地点:`);
+    out.push(
+      `  go <角色> <地点> [携带物,携带物]   可携带 ${slots} 件；同一时间只能有一个人外出；危险包括一去不回；地点:`,
+    );
     for (const loc of content.db.locations.filter((l) => l.map === run.mapId)) {
       const plan: ExpeditionPlan = { charId: home[0], locationId: loc.id, carry: [] };
       const vehicle = loc.vehicle ?? content.maps.get(run.mapId)?.expedition.vehicle;
@@ -257,7 +308,7 @@ export function describeState(content: Content, run: RunState): string {
       const err = validateExpeditionPlan(env, plan);
       const blocked = err === 'locationLocked' || err === 'vehicleMissing';
       out.push(
-        `    ${loc.name}[${loc.id}]  往返 ${loc.distance} 天  危险 ${dangerLevel(loc.danger)}/5  ${loc.desc ?? ''}` +
+        `    ${loc.name}[${loc.id}]  往返 ${loc.distance} 天  危险 ${dangerLevel(loc.danger)}/5（${DANGER_WORDS[dangerLevel(loc.danger) - 1]}）  ${loc.desc ?? ''}` +
           (blocked ? `  （暂不可去${loc.requiresHint ? `：${loc.requiresHint}` : ''}）` : ''),
       );
     }

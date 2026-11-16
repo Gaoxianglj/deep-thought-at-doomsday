@@ -1,7 +1,6 @@
 /** 外出面板：左栏选人与携带物，右栏地点卡片；底部确认/取消，保留"配给与携带物冲突"的警告。 */
 import {
   evalCondition,
-  getModifier,
   shelterIds,
   validateExpeditionPlan,
   type Content,
@@ -23,6 +22,13 @@ import {
   sectionTitle,
 } from '../components/widgets';
 import { errorText, fmt, T } from '../text';
+import {
+  dangerLevel,
+  dangerWord,
+  effectiveDanger,
+  estimateTrip,
+  tripDays,
+} from './expedition-estimate';
 import type { PanelCtx } from './types';
 
 interface ExpDraft {
@@ -59,10 +65,7 @@ function draftPlan(content: Content, run: RunState): ExpeditionPlan | null {
   return plan;
 }
 
-/** 危险度 → 1–5 级 */
-export function dangerLevel(danger: number): number {
-  return Math.max(1, Math.min(5, Math.ceil(danger / 0.1 - 1e-9)));
-}
+export { dangerLevel };
 
 function dangerIcons(danger: number): HTMLElement {
   const level = dangerLevel(danger);
@@ -203,19 +206,20 @@ export function expeditionPanel(ctx: PanelCtx): HTMLElement {
     });
 
   // 去哪
+  const carryList = (): string[] =>
+    Object.entries(draft.carry).flatMap(([id, n]) => Array<string>(n).fill(id));
   const locations = content.db.locations.filter((l) => l.map === run.mapId);
   const where = locations.map((loc) => {
     const self = draft.charId ?? shelterIds(run)[0];
-    const plan: ExpeditionPlan = { charId: self ?? '', locationId: loc.id, carry: [] };
-    const ok = evalCondition(env, { self, expedition: plan }, loc.requires);
-    const days = Math.max(
-      1,
-      Math.round(getModifier(env, 'expedition.duration', loc.distance, self, { expedition: plan })),
-    );
-    const danger = Math.min(
-      0.95,
-      Math.max(0, getModifier(env, 'expedition.danger', loc.danger, self, { expedition: plan })),
-    );
+    const probe: ExpeditionPlan = { charId: self ?? '', locationId: loc.id, carry: [] };
+    const ok = evalCondition(env, { self, expedition: probe }, loc.requires);
+    const plan: ExpeditionPlan = {
+      charId: self ?? '',
+      locationId: loc.id,
+      carry: carryList(),
+    };
+    const days = tripDays(env, loc, self, plan);
+    const danger = effectiveDanger(env, loc, self, plan);
     const selected = draft.locationId === loc.id;
     return h(
       'button',
@@ -241,6 +245,11 @@ export function expeditionPanel(ctx: PanelCtx): HTMLElement {
           h('span', { class: 'place__days' }, fmt(T.run.expeditionDays, { n: days })),
           dangerIcons(danger),
         ),
+        h(
+          'span',
+          { class: ['place__risk', dangerLevel(danger) >= 4 && 'place__risk--high'] },
+          dangerWord(dangerLevel(danger)),
+        ),
         loc.desc && h('span', { class: 'place__desc' }, loc.desc),
         !ok && h('span', { class: 'place__hint' }, loc.requiresHint ?? T.run.expeditionLocked),
       ),
@@ -264,6 +273,9 @@ export function expeditionPanel(ctx: PanelCtx): HTMLElement {
   const conflicts = Object.keys(draft.carry)
     .map((id) => [id, usage.get(id) ?? 0] as const)
     .filter(([id, n]) => n > (run.inventory[id] ?? 0));
+
+  const selectedLoc = draft.locationId ? content.locations.get(draft.locationId) : undefined;
+  const trip = plan && selectedLoc ? estimateTrip(env, selectedLoc, plan) : null;
 
   const same =
     !!planned &&
@@ -292,6 +304,7 @@ export function expeditionPanel(ctx: PanelCtx): HTMLElement {
     'div',
     { class: 'exp-right', attrs: { 'data-skey': 'exp-right' } },
     sectionTitle(T.run.expeditionWhere),
+    h('p', { class: 'hint exp-note' }, `${T.run.expeditionOnlyOne}${T.run.expeditionDangerNote}`),
     locations.length
       ? h('div', { class: 'place-list' }, where)
       : emptyNote(T.run.expeditionNoLocations),
@@ -318,6 +331,16 @@ export function expeditionPanel(ctx: PanelCtx): HTMLElement {
             .join('；'),
           ' ',
           T.run.rationOverNote,
+        ),
+      trip &&
+        trip.shortfalls.length > 0 &&
+        h(
+          'p',
+          { class: 'warn warn--trip', attrs: { role: 'alert' } },
+          fmt(T.run.expeditionTripWarn, {
+            name: charName(content, plan!.charId),
+            stats: trip.shortfalls.map((x) => `${x.name}约 ${x.value}`).join('、'),
+          }),
         ),
       !conflicts.length &&
         planned &&

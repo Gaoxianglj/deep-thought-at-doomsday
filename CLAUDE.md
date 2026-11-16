@@ -100,6 +100,7 @@ sim → engine        validation → engine
 | `{ all: [...] }` / `{ any: [...] }` / `{ not: c }` | 与 / 或 / 非                        | 空 `all` 为真，空 `any` 为假                                                                      |
 | `{ stat: 'satiety', of, gte/gt/lte/lt/eq }`        | 属性比较                            | 多个比较键同时写则需全部满足                                                                      |
 | `{ hasStatus: 'sick', of }`                        | 目标身上有该状态                    |                                                                                                   |
+| `{ away: 'self' }`                                 | 目标此刻正在外出                    | 只认单个目标（self / expeditioner / `{ id }` / `{ role }`）；常用于"外出时"的修正                 |
 | `{ hasItem: 'radio', count?: 1 }`                  | 库存中该物品数量 ≥ count            | 外出中携带的物品不在库存里                                                                        |
 | `{ hasTag: 'food', count?: 1 }`                    | 带该标签的物品总数 ≥ count          | tag 不校验是否存在                                                                                |
 | `{ carrying: 'crowbar' }`                          | 本次外出携带了该物品                | 仅外出上下文有意义（specials、`requires`、外出修正）；其余回退到 `run.expedition`                 |
@@ -153,10 +154,10 @@ sim → engine        validation → engine
 
 **规则来源**与 `self`：
 
-| 来源                                                                   | 类别 | `when` 里的 `self`                    | `scope` 字段                                                              |
-| ---------------------------------------------------------------------- | ---- | ------------------------------------- | ------------------------------------------------------------------------- |
-| 地图 `rules`、难度 `rules`、当前天气 `rules`、**库存中**的道具 `rules` | 全局 | 被计算的角色（subject，全局计算时无） | **忽略**：全局来源的修正总是作用于所有人                                  |
-| 角色特性 `traits[].rules`、角色身上的状态 `rules`                      | 角色 | 该角色                                | 默认 `self`：只影响该角色自己；`global`：影响所有计算，但该角色须在庇护所 |
+| 来源                                                                                                                           | 类别 | `when` 里的 `self`                    | `scope` 字段                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---- | ------------------------------------- | ------------------------------------------------------------------------- |
+| 地图 `rules`、难度 `rules`、当前天气 `rules`、**库存中**的道具 `rules`（计算某次外出时，**本次携带**的道具也算，同种只算一次） | 全局 | 被计算的角色（subject，全局计算时无） | **忽略**：全局来源的修正总是作用于所有人                                  |
+| 角色特性 `traits[].rules`、角色身上的状态 `rules`                                                                              | 角色 | 该角色                                | 默认 `self`：只影响该角色自己；`global`：影响所有计算，但该角色须在庇护所 |
 
 **trigger 何时、对谁触发**（`fireTrigger`）：
 
@@ -167,7 +168,7 @@ sim → engine        validation → engine
 | `expeditionDepart` | 触发 1 次，`self` = 外出者             | 只对外出者本人                     |
 | `expeditionReturn` | 同上（战利品已入库、携带物已归还之后） | 同上                               |
 
-经验规则：**持续性的每日增减用修正**（如"饥饿：健康每日 −8"写 `stat.health.dailyDelta add -8`），这样外出中的角色也生效；trigger 规则外出者不会触发 `dayStart/dayEnd`。全局 trigger 规则里要影响角色，用 `of: 'all'` / `'random'`，不要用 `'self'`。道具被带出去时不在库存里，它的 `rules` 暂时失效。
+经验规则：**持续性的每日增减用修正**（如"饥饿：健康每日 −8"写 `stat.health.dailyDelta add -8`），这样外出中的角色也生效；trigger 规则外出者不会触发 `dayStart/dayEnd`。全局 trigger 规则里要影响角色，用 `of: 'all'` / `'random'`，不要用 `'self'`。道具被带出去时不在库存里：它的 `rules` 对家里的计算失效，但对**这趟外出本身**（危险、战利品、耗时、`expeditionDepart/Return` 触发）仍然生效。外出用的道具通常写 `when: { carrying: '<自己的 id>' }`，表示"带在身上才有用"。
 
 **修正键一览**（登记表在 `src/validation/validate.ts` 的 `MODIFIER_KEY_PATTERNS`，未登记的键校验报错）：
 
@@ -360,7 +361,7 @@ sim → engine        validation → engine
 1. 放在 `src/data/events/<主题>.ts`；新文件要在 `events/index.ts` 加入汇总数组。
 2. 普通随机事件：`when` 决定入池条件；`weight`（默认 1）；`once`（一局一次）/ `cooldown`（冷却天数）；`tags` 用于被 `event.weight.<tag>` 修正。
 3. 角色绑定：`roles: { a: {}, b: { where: ... } }` 从此刻在庇护所的活人中随机绑定，互不重复；`is: '角色id'` 指定某人（他不在庇护所则事件不入池）；`where` 的 `self` = 候选人。名为 `self` 的角色等价于 `'self'` 目标。绑不上则事件不入池。
-4. 道具分支见 5.3；`requires` 不满足时选项置灰。
+4. 道具分支见 5.3；`requires` 不满足时选项置灰。只为某角色准备的选项（`requires: { inShelter: '<id>' }`）加 `hideIfLocked: true`，不满足时直接不显示，免得剧透没见过的角色。
 5. `outcomes`：先按 `when` 过滤再按 `weight` 抽 1 个；**同一选项的 `when` 必须互补，保证任何情况至少有一个结果可用**（否则运行时给出空结果，校验有 warning）。
 6. 事件链：结果里 `next: '事件id'`，沿用当前绑定的角色，立刻展示；`next` 指向的事件通常 `weight: 0`。
 7. 延时：效果 `{ queueEvent: 'id', delay: 3 }` 在 3 天后的清晨必定触发（沿用 `self` 与 roles；**不检查目标事件的 `when`**）。

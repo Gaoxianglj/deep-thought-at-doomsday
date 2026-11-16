@@ -1,4 +1,9 @@
-import type { EventDef } from '../../engine/schema';
+import type { Condition, EventDef } from '../../engine/schema';
+
+/** 库存里至少有一件东西（"丢/坏掉一样东西"之前先确认有东西可丢，否则文案里的 {lost} 会是空的） */
+const HAS_ANY: Condition = {
+  any: ['food', 'water', 'medicine', 'tool', 'part'].map((tag) => ({ hasTag: tag })),
+};
 
 /**
  * 道具事件（docs/DESIGN.md 12.7）：60 Seconds 式"用不用某件东西"。
@@ -9,7 +14,7 @@ export const itemEvents: EventDef[] = [
   {
     id: 'cold_night',
     title: '寒夜',
-    text: '夜里气温骤降，墙上结了一层白霜。大家裹着所有能找到的布料，牙齿还是打颤。',
+    text: '昨夜气温骤降，墙上结了一层白霜，到现在也没回暖。大家裹着所有能找到的布料，牙齿还是打颤。',
     tags: ['weather'],
     when: { day: { gte: 3 } },
     cooldown: 6,
@@ -61,7 +66,7 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 2,
-            text: '一整夜谁都没睡好，早上起来每个人都在流鼻涕。',
+            text: '又冻了一整夜，谁都没睡好，第二天早上每个人都在流鼻涕。',
             effects: [
               { stat: 'health', of: 'all', add: -4 },
               { stat: 'sanity', of: 'all', add: -2 },
@@ -148,7 +153,7 @@ export const itemEvents: EventDef[] = [
     text: '通风口里嗡嗡作响，{a} 凑近一看，一窝马蜂正在里面安家，个头比拇指还大。',
     tags: ['pest'],
     when: { day: { gte: 3 } },
-    cooldown: 8,
+    cooldown: 12,
     roles: { a: {} },
     choices: [
       {
@@ -204,11 +209,12 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 1,
-            text: '马蜂好像对你们没什么兴趣。大家绕着通风口走了好几天。',
+            text: '马蜂好像对你们没什么兴趣。可大家还是绕着通风口提心吊胆地走了好几天。',
+            effects: [{ stat: 'sanity', of: 'all', add: -2 }],
           },
           {
-            weight: 1,
-            text: '半夜一只马蜂飞了下来，正好蛰在 {a} 的脸上。肿得像个包子。',
+            weight: 2,
+            text: '当天夜里一只马蜂飞了下来，正好蛰在 {a} 的脸上。肿得像个包子。',
             effects: [
               { stat: 'health', of: { role: 'a' }, add: -8 },
               { stat: 'sanity', of: { role: 'a' }, add: -4 },
@@ -221,10 +227,10 @@ export const itemEvents: EventDef[] = [
   {
     id: 'storm_leak',
     title: '暴雨夜',
-    text: '暴雨下了一整夜，储藏间的天花板裂开一道缝，雨水正好滴在物资堆上。{a} 举着手电愣在原地。',
+    text: '暴雨下了一整夜，储藏间的天花板裂开一道缝，雨水正好滴在物资堆上。{a} 一早推开储藏间的门，愣在了原地。',
     tags: ['water'],
-    when: { day: { gte: 3 } },
-    cooldown: 7,
+    when: { all: [{ day: { gte: 3 } }, HAS_ANY] },
+    cooldown: 9,
     roles: { a: {} },
     choices: [
       {
@@ -273,7 +279,7 @@ export const itemEvents: EventDef[] = [
         text: '把物资全挪开，随它漏',
         outcomes: [
           {
-            text: '大家折腾了大半夜，把所有东西搬到了另一头。累得腰都直不起来。',
+            text: '大家折腾了一上午，把所有东西搬到了另一头。累得腰都直不起来。',
             effects: [{ stat: 'sanity', of: 'all', add: -3 }],
           },
         ],
@@ -337,11 +343,11 @@ export const itemEvents: EventDef[] = [
   },
   {
     id: 'radio_music',
-    title: '午夜电台',
+    title: '世界尽头的电台',
     text: '{a} 转着收音机的旋钮，在一片沙沙声里，忽然收到了一个只放老歌的电台。主播的声音懒洋洋的，像是一个人在世界尽头值夜班。',
     tags: ['radio'],
     when: { hasItem: 'radio' },
-    cooldown: 5,
+    cooldown: 8,
     roles: { a: {} },
     choices: [
       {
@@ -349,7 +355,7 @@ export const itemEvents: EventDef[] = [
         text: '调大音量，一起听',
         outcomes: [
           {
-            text: '一首接一首的老歌，有人跟着哼，有人偷偷抹眼泪。那天晚上大家都睡得很好。',
+            text: '一首接一首的老歌，有人跟着哼，有人偷偷抹眼泪。当晚大家都睡得很好。',
             effects: [{ stat: 'sanity', of: 'all', add: 5 }],
           },
         ],
@@ -631,9 +637,9 @@ export const itemEvents: EventDef[] = [
   {
     id: 'card_night',
     title: '牌局',
-    text: '晚饭后没事干，{a} 掏出那副少了红桃 Q 的扑克牌拍在桌上：“来一局？”{b} 已经在撸袖子了。',
+    text: '闲着没事干，{a} 掏出那副少了红桃 Q 的扑克牌拍在桌上：“来一局？”{b} 已经在撸袖子了。',
     when: { hasItem: 'playing_cards' },
-    cooldown: 5,
+    cooldown: 10,
     roles: { a: {}, b: {} },
     choices: [
       {
@@ -641,26 +647,27 @@ export const itemEvents: EventDef[] = [
         text: '打牌，不赌东西',
         outcomes: [
           {
-            weight: 2,
-            text: '一直打到半夜，笑声差点把房顶掀了。',
+            weight: 3,
+            text: '一直打到天黑，笑声差点把房顶掀了。',
             effects: [{ stat: 'sanity', of: 'all', add: 6 }],
           },
           {
             weight: 1,
-            text: '{a} 和 {b} 为了那张不存在的红桃 Q 到底算谁的吵了起来，最后谁也不理谁。',
+            text: '打到一半，{a} 和 {b} 为了那张不存在的红桃 Q 该算谁的争得面红耳赤——明明什么也没赌，吵的纯粹是面子。两人谁也不理谁，旁观的人倒是看得很开心。',
             effects: [
               { stat: 'sanity', of: { role: 'a' }, add: -3 },
               { stat: 'sanity', of: { role: 'b' }, add: -3 },
+              { stat: 'sanity', of: 'all', add: 2 },
             ],
           },
         ],
       },
       {
         id: 'bet',
-        text: '赌明天的晚饭',
+        text: '赌今天的晚饭（输的人少吃半顿）',
         outcomes: [
           {
-            text: '{a} 赢走了 {b} 的晚饭，吃得心满意足。{b} 饿着肚子发誓再也不赌了。',
+            text: '{a} 赢走了 {b} 的半顿晚饭，吃得心满意足。{b} 饿着肚子发誓再也不赌了。',
             effects: [
               { stat: 'satiety', of: { role: 'a' }, add: 10 },
               { stat: 'satiety', of: { role: 'b' }, add: -10 },
@@ -672,7 +679,7 @@ export const itemEvents: EventDef[] = [
       },
       {
         id: 'pass',
-        text: '早点睡吧',
+        text: '今天就算了吧',
         outcomes: [{ text: '{a} 失望地把牌收了起来。' }],
       },
     ],
@@ -680,7 +687,7 @@ export const itemEvents: EventDef[] = [
   {
     id: 'map_reading',
     title: '地图册上的红圈',
-    text: '{a} 抱着地图册研究了一下午，在密密麻麻的批注里发现了一处用红笔圈起来的“物资点”，就在两条街外。',
+    text: '{a} 昨天抱着地图册研究了一下午，在密密麻麻的批注里发现了一处用红笔圈起来的“物资点”，就在两条街外。',
     when: { hasItem: 'map_book' },
     cooldown: 8,
     roles: { a: { where: { not: { hasStatus: 'injured', of: 'self' } } } },
@@ -706,12 +713,12 @@ export const itemEvents: EventDef[] = [
       },
       {
         id: 'burn',
-        text: '天太冷了，撕几页地图册生火',
+        text: '天太冷了，拿地图册当柴火生一堆火',
         requires: { hasItem: 'lighter' },
         requiresHint: '需要打火机',
         outcomes: [
           {
-            text: '火烧得很旺，大家暖和了一晚上。只是地图册烧掉了一大半，基本没法用了。',
+            text: '火烧得很旺，大家暖和了一整天。只是地图册烧掉了一大半，基本没法用了。',
             effects: [
               { item: 'map_book', add: -1 },
               { stat: 'health', of: 'all', add: 4 },
@@ -801,14 +808,14 @@ export const itemEvents: EventDef[] = [
   {
     id: 'looters_scout',
     title: '踩点的人',
-    text: '有两个陌生人在楼下转悠了一整天，时不时抬头往你们的窗户看。看样子是在踩点。',
+    text: '从昨天起，就有两个陌生人在楼下转悠，时不时抬头往你们的窗户看。看样子是在踩点。',
     tags: ['danger'],
     when: { day: { gte: 3 } },
     cooldown: 6,
     choices: [
       {
         id: 'lock',
-        text: '装上门锁，加固门窗',
+        text: '把门锁装好，加固门窗',
         requires: { hasItem: 'door_lock' },
         requiresHint: '需要门锁',
         outcomes: [
@@ -857,7 +864,7 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             text: '一份 {lost} 从窗口扔了下去。他们捡起来，冲窗户点点头，走了。',
-            effects: [{ loseRandomItem: { tag: 'food', count: 1 } }],
+            effects: [{ loseRandomItem: { tag: 'food', count: 1, pick: 'cheapest' } }],
           },
         ],
       },
@@ -889,7 +896,7 @@ export const itemEvents: EventDef[] = [
           {
             text: '老人接过 {lost}，眼眶一下就红了，一遍一遍地说“好人有好报”。',
             effects: [
-              { loseRandomItem: { tag: 'food', count: 1 } },
+              { loseRandomItem: { tag: 'food', count: 1, pick: 'cheapest' } },
               { stat: 'sanity', of: 'all', add: 3 },
               { queueEvent: 'beggar_return', delay: 3 },
             ],
@@ -905,7 +912,7 @@ export const itemEvents: EventDef[] = [
           {
             text: '老人捧着 {lost} 小口小口地喝，喝完把瓶子也仔细收了起来。',
             effects: [
-              { loseRandomItem: { tag: 'water', count: 1 } },
+              { loseRandomItem: { tag: 'water', count: 1, pick: 'cheapest' } },
               { stat: 'sanity', of: 'all', add: 3 },
               { queueEvent: 'beggar_return', delay: 3 },
             ],
@@ -995,7 +1002,7 @@ export const itemEvents: EventDef[] = [
           {
             text: '橘猫狼吞虎咽地吃完了 {lost}，在窗台上打了个滚，舔着爪子走了。',
             effects: [
-              { loseRandomItem: { tag: 'food', count: 1 } },
+              { loseRandomItem: { tag: 'food', count: 1, pick: 'cheapest' } },
               { stat: 'sanity', of: 'all', add: 4 },
               { queueEvent: 'cat_gift', delay: 2 },
             ],
@@ -1243,22 +1250,28 @@ export const itemEvents: EventDef[] = [
           {
             text: '你们交出了 {lost}，换来一卷胶带。',
             effects: [
-              { loseRandomItem: { tag: 'water', count: 3 } },
+              { loseRandomItem: { tag: 'water', count: 3, pick: 'cheapest' } },
               { item: 'duct_tape', add: 1 },
             ],
           },
           {
             text: '你们交出了 {lost}，换来一个打火机。',
-            effects: [{ loseRandomItem: { tag: 'water', count: 3 } }, { item: 'lighter', add: 1 }],
+            effects: [
+              { loseRandomItem: { tag: 'water', count: 3, pick: 'cheapest' } },
+              { item: 'lighter', add: 1 },
+            ],
           },
           {
             text: '你们交出了 {lost}，换来一捆绳子。',
-            effects: [{ loseRandomItem: { tag: 'water', count: 3 } }, { item: 'rope', add: 1 }],
+            effects: [
+              { loseRandomItem: { tag: 'water', count: 3, pick: 'cheapest' } },
+              { item: 'rope', add: 1 },
+            ],
           },
           {
             text: '你们交出了 {lost}，换来一罐杀虫喷雾。',
             effects: [
-              { loseRandomItem: { tag: 'water', count: 3 } },
+              { loseRandomItem: { tag: 'water', count: 3, pick: 'cheapest' } },
               { item: 'bug_spray', add: 1 },
             ],
           },
@@ -1272,7 +1285,10 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             text: '你们交出了 {lost}。货郎从购物车底下摸出一个急救包，拍了拍上面的灰。',
-            effects: [{ loseRandomItem: { tag: 'food', count: 2 } }, { item: 'medkit', add: 1 }],
+            effects: [
+              { loseRandomItem: { tag: 'food', count: 2, pick: 'cheapest' } },
+              { item: 'medkit', add: 1 },
+            ],
           },
         ],
       },

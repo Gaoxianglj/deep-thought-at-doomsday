@@ -9,15 +9,19 @@ import { applyEffects } from './effects';
 import { rollChance } from './rng';
 import type { ExpeditionPlan, Rule, Trigger } from './schema';
 
-export function globalRules(env: Env): Rule[] {
+/**
+ * 全局来源的规则。expedition：正在计算某次外出时传入——带在身上的道具离开了库存，
+ * 但对这趟外出本身仍然生效（带着手电筒出门，这趟才更安全）。同一种道具只算一次。
+ */
+export function globalRules(env: Env, expedition?: ExpeditionPlan): Rule[] {
   const { run, content } = env;
   const out: Rule[] = [];
   out.push(...(content.maps.get(run.mapId)?.rules ?? []));
   out.push(...(content.difficulties.get(run.difficultyId)?.rules ?? []));
   if (run.weather) out.push(...(content.weathers.get(run.weather.id)?.rules ?? []));
-  for (const [id, n] of Object.entries(run.inventory)) {
-    if (n > 0) out.push(...(content.items.get(id)?.rules ?? []));
-  }
+  const itemIds = new Set(Object.keys(run.inventory).filter((id) => run.inventory[id] > 0));
+  for (const id of expedition?.carry ?? []) itemIds.add(id);
+  for (const id of itemIds) out.push(...(content.items.get(id)?.rules ?? []));
   return out;
 }
 
@@ -59,7 +63,7 @@ export function getModifier(
       }
     }
   };
-  collect(globalRules(env), subject, false);
+  collect(globalRules(env, extra.expedition), subject, false);
   for (const id of aliveIds(env.run)) {
     if (id === subject) collect(characterRules(env, id), id, false);
     else if (env.run.characters[id].where === 'shelter') collect(characterRules(env, id), id, true);
@@ -83,7 +87,7 @@ export function fireTrigger(env: Env, trigger: Trigger, expedition?: ExpeditionP
       applyEffects(env, scope, rule.effects);
     }
   };
-  fire(globalRules(env), expedition?.charId);
+  fire(globalRules(env, expedition), expedition?.charId);
   const chars = expedition ? [expedition.charId] : shelterIds(env.run);
   for (const id of chars) fire(characterRules(env, id), id);
 }

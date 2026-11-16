@@ -49,7 +49,7 @@ export const rescueEvents = [
         outcomes: [
           {
             weight: 1,
-            text: '对面回应了！一个沙哑的声音记下了你们的位置：“三天后，街口会合。记住，带上 {flagItem:evac_item}。”',
+            text: '对面回应了！一个沙哑的声音记下了你们的位置：“三天后的清晨，我们开车到你们街口接人——你们在屋里等着就行，不用出来找。记住，{flagItem:evac_item} 得留在屋里备好，别让人带出门。”',
             effects: [
               { setFlag: 'evac_known', value: true },
               { setFlag: 'evac_contact', value: true },
@@ -107,7 +107,7 @@ export const rescueEvents = [
             weight: 1,
             text: '年轻一点的士兵犹豫了一下，接过食物，朝车厢努了努嘴。另一个假装什么也没看见。',
             effects: [
-              { loseRandomItem: { tag: 'food', count: 3 } },
+              { loseRandomItem: { tag: 'food', count: 3, pick: 'cheapest' } },
               { setFlag: 'rule_broken', value: true },
               { ending: 'military_evac' },
             ],
@@ -116,7 +116,7 @@ export const rescueEvents = [
             weight: 3,
             text: '士兵把枪口抬了抬：“规矩就是规矩。”他们顺手拿走了一份：{lost}，然后上车走了。也许还会有下一次广播。',
             effects: [
-              { loseRandomItem: { tag: 'food', count: 1 } },
+              { loseRandomItem: { tag: 'food', count: 1, pick: 'cheapest' } },
               { setFlag: 'rule_broken', value: true },
               { setFlag: 'evac_contact', value: false },
               { stat: 'sanity', of: 'all', add: -5 },
@@ -144,7 +144,7 @@ export const rescueEvents = [
   {
     id: 'caravan_first_contact',
     title: '南下的车队',
-    text: '一阵喇叭声把你们从午睡里吵醒。几辆焊满铁板的卡车停在楼下，领头的女人敲了敲铁门：“我们往南走，那边据说还有电。想跟着走的话，路上的水和吃的得自己出一份。”',
+    text: '一大早，一阵喇叭声把你们吵醒了。几辆焊满铁板的卡车停在楼下，领头的女人敲了敲铁门：“我们往南走，那边据说还有电。想跟着走的话，路上的水和吃的得自己出一份。”',
     weight: 3,
     cooldown: 3,
     when: { all: [{ day: { gte: 7 } }, { not: { flag: 'caravan_known' } }] },
@@ -154,7 +154,7 @@ export const rescueEvents = [
         text: '开门谈谈',
         outcomes: [
           {
-            text: `领队掰着手指算了算你们的人头：“要捎上你们，还得再凑 {flag:caravan_water_left} 份水、{flag:caravan_food_left} 份吃的。我们每${CN[CARAVAN_GAP]}天经过一次，最多再来${CN[CARAVAN_VISITS - 1]}趟。凑齐了就上车。”`,
+            text: `领队掰着手指算了算你们的人头：“要捎上你们，还得再凑 {flag:caravan_water_left} 份水、{flag:caravan_food_left} 份吃的。我们每${CN[CARAVAN_GAP]}天经过一次，最多再来${CN[CARAVAN_VISITS - 1]}趟，每趟能交多少交多少。凑齐了就上车。”`,
             effects: [
               { setFlag: 'caravan_known', value: true },
               { setFlag: 'caravan_visits', value: 0 },
@@ -372,7 +372,7 @@ export const rescueEvents = [
         text: '读那行字',
         outcomes: [
           {
-            text: '“两天后的清晨，离你们最近的地铁口。列车只停一会儿。”{self} 把时刻表揣进怀里，一路小跑回了家。',
+            text: '“两天后的清晨，离你们最近的地铁口。列车只停一会儿。”{self} 把时刻表揣进怀里，一路小跑回了家。不用再出门找了——两天后的清晨，大家在家里等着，到时候一起去门口的地铁口就行。',
             effects: [
               { setFlag: 'trail_step', value: 4 },
               { setFlag: 'train_wait', value: 3 },

@@ -32,9 +32,10 @@ export const selfRescueEvents = [
         text: '交给嘎拉嘛',
         requires: { inShelter: 'garama' },
         requiresHint: '嘎拉嘛不在庇护所',
+        hideIfLocked: true,
         outcomes: [
           {
-            text: '嘎拉嘛叼着手电筒趴在发电机底下鼓捣了一下午，爬出来时满脸黑油：“嘎拉嘛！”发电机的声音比说明书上写的还要平稳。',
+            text: '嘎拉嘛把眼罩往头顶一推，趴在发电机底下鼓捣了一下午，爬出来时满脸黑油：“嘎拉嘛！”发电机的声音比说明书上写的还要平稳。',
             effects: [
               { item: 'generator_part', add: -1 },
               { setFlag: 'gen_installed', value: true },
@@ -71,6 +72,7 @@ export const selfRescueEvents = [
         text: '交给嘎拉嘛',
         requires: { inShelter: 'garama' },
         requiresHint: '嘎拉嘛不在庇护所',
+        hideIfLocked: true,
         outcomes: [
           {
             text: '嘎拉嘛把净水桶整个拆开又装了回去，顺手用剩下的零件做了个漏斗。出水快了一倍。',
@@ -110,6 +112,7 @@ export const selfRescueEvents = [
         text: '交给嘎拉嘛',
         requires: { inShelter: 'garama' },
         requiresHint: '嘎拉嘛不在庇护所',
+        hideIfLocked: true,
         outcomes: [
           {
             text: '嘎拉嘛用废水管搭了一套滴灌，还给种植箱装了一盏小灯。大家围着它看了半天，好像能看见种子在发芽。',
@@ -149,6 +152,7 @@ export const selfRescueEvents = [
         text: '交给嘎拉嘛',
         requires: { inShelter: 'garama' },
         requiresHint: '嘎拉嘛不在庇护所',
+        hideIfLocked: true,
         outcomes: [
           {
             text: '嘎拉嘛顺手给通风机的轴承上了油，还把呼呼作响的叶片校正了角度。屋里安静了不少。',

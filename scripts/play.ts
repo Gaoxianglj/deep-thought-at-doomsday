@@ -10,8 +10,9 @@ import {
   describeInfo,
   describeState,
   describeStep,
-  loadRun,
   runCommand,
+  staleSessionMessage,
+  tryLoadRun,
   setupCost,
   type PlaySession,
   type PlaySetup,
@@ -135,12 +136,16 @@ switch (command) {
     break;
   }
   case 'show': {
-    console.log(describeState(content, loadRun(content, loadSession())));
+    const loaded = tryLoadRun(content, loadSession());
+    if (loaded.failedAt !== undefined) fail(staleSessionMessage(loaded.failedAt));
+    console.log(describeState(content, loaded.run));
     break;
   }
   case 'act': {
     const session = loadSession();
-    const start = loadRun(content, session);
+    const loaded = tryLoadRun(content, session);
+    if (loaded.failedAt !== undefined) fail(staleSessionMessage(loaded.failedAt));
+    const start = loaded.run;
     if (start.phase === 'ended') fail('这一局已经结束了。可以用 report 导出过程，或 new 开新局。');
     // 允许用 ; 一次执行多条命令（遇到错误就停），最后只打印一次局面，省得每步都刷屏
     const commands = restWords
@@ -175,24 +180,43 @@ switch (command) {
   }
   case 'note': {
     const session = loadSession();
-    const run = loadRun(content, session);
+    const loaded = tryLoadRun(content, session);
+    const day = loaded.run?.day ?? session.notes[session.notes.length - 1]?.day ?? 1;
     const text = restWords.join(' ').trim();
     if (!text) fail('用法: note <文字>');
-    session.notes.push({ day: run.day, text });
+    session.notes.push({ day, text });
     saveSession(session);
-    console.log(`已记录（第 ${run.day} 天）: ${text}`);
+    console.log(`已记录（第 ${day} 天）: ${text}`);
     break;
   }
   case 'report': {
     const session = loadSession();
     const rec = createReplayRecorder(content);
+    const probe = tryLoadRun(content, session);
+    if (probe.failedAt === 0) {
+      console.log(`== 试玩报告 / 种子 ${session.setup.seed} ==\n${staleSessionMessage(0)}`);
+      if (session.notes.length) {
+        console.log('\n试玩笔记:');
+        for (const n of session.notes) console.log(`  [第 ${n.day} 天] ${n.text}`);
+      }
+      break;
+    }
     let run = newRun(content, session.setup);
     rec.start(run);
-    session.actions.forEach((action, index) => {
-      const res = applyAction(run, action, content);
-      rec.step({ index, before: run, action, after: res.state, error: res.error });
+    for (let index = 0; index < session.actions.length; index++) {
+      const res = applyAction(run, session.actions[index], content);
+      rec.step({
+        index,
+        before: run,
+        action: session.actions[index],
+        after: res.state,
+        error: res.error,
+      });
+      if (res.error) break;
       run = res.state;
-    });
+    }
+    if (probe.failedAt !== undefined)
+      console.log(`!! 内容已变化，第 ${probe.failedAt} 步之后无法重放（以下为失败前的过程）\n`);
     const header = `== 试玩报告 / 种子 ${session.setup.seed} / ${content.maps.get(session.setup.mapId)?.name} / ${content.difficulties.get(session.setup.difficultyId)?.name} ==`;
     console.log(
       formatReplay(

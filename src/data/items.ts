@@ -72,30 +72,37 @@ export const items = [
   {
     id: 'crowbar',
     name: '撬棍',
-    desc: '能撬开大多数东西。携带它外出更容易翻到工具类物资。',
+    desc: '能撬开大多数东西。带在身上外出时更容易翻到工具类物资；带去五金市场，有机会撬开上锁的仓库。',
     tags: ['tool'],
     cost: 4,
     maxAtStart: 1,
-    rules: [{ id: 'crowbar_loot', modifiers: [{ key: 'expedition.lootWeight.tool', mul: 1.3 }] }],
+    rules: [
+      {
+        id: 'crowbar_loot',
+        when: { carrying: 'crowbar' },
+        modifiers: [{ key: 'expedition.lootWeight.tool', mul: 1.3 }],
+      },
+    ],
   },
   {
     id: 'flashlight',
     name: '手电筒',
-    desc: '有光，就没那么怕了。外出危险度小幅降低。',
+    desc: '有光，就没那么怕了。带在身上外出时危险小幅降低，还有机会照见别人漏掉的角落（便利店、变电站）。',
     tags: ['tool'],
     cost: 3,
     maxAtStart: 1,
     rules: [
       {
         id: 'flashlight_safe',
-        modifiers: [{ key: 'expedition.danger', mul: 0.85, scope: 'global' }],
+        when: { carrying: 'flashlight' },
+        modifiers: [{ key: 'expedition.danger', mul: 0.85 }],
       },
     ],
   },
   {
     id: 'radio',
     name: '收音机',
-    desc: '大部分频道只有沙沙声，但说不定哪天能收到点什么。',
+    desc: '大部分频道只有沙沙声，但说不定哪天能收到点什么——比如军方的广播。',
     tags: ['tool'],
     cost: 3,
     maxAtStart: 1,
@@ -103,7 +110,7 @@ export const items = [
   {
     id: 'door_lock',
     name: '门锁',
-    desc: '一把结实的门锁，能挡住不速之客一次。',
+    desc: '一把结实的门锁，有人破门时能挡住一次（挡完就坏了）。',
     tags: ['tool'],
     cost: 3,
     maxAtStart: 2,
@@ -111,7 +118,7 @@ export const items = [
   {
     id: 'gas_mask',
     name: '防毒面具',
-    desc: '戴上以后呼吸声像大反派，但不容易生病。',
+    desc: '戴上以后呼吸声像大反派。放在家里时全队不容易生病；带去药房、自来水厂，能闯进有毒气的地方。',
     tags: ['tool'],
     cost: 4,
     maxAtStart: 1,
@@ -125,11 +132,17 @@ export const items = [
   {
     id: 'map_book',
     name: '地图册',
-    desc: '手绘批注密密麻麻。外出时更容易找到值钱的零件。',
+    desc: '手绘批注密密麻麻。带在身上外出时更容易找到值钱的零件。',
     tags: ['tool'],
     cost: 3,
     maxAtStart: 1,
-    rules: [{ id: 'map_book_parts', modifiers: [{ key: 'expedition.lootWeight.part', mul: 1.5 }] }],
+    rules: [
+      {
+        id: 'map_book_parts',
+        when: { carrying: 'map_book' },
+        modifiers: [{ key: 'expedition.lootWeight.part', mul: 1.5 }],
+      },
+    ],
   },
   {
     id: 'playing_cards',
@@ -164,7 +177,7 @@ export const items = [
   {
     id: 'bug_spray',
     name: '杀虫喷雾',
-    desc: '标签上画着一只死得很安详的蟑螂。对付虫子和老鼠都有一手。',
+    desc: '标签上画着一只死得很安详的蟑螂。对付虫子和老鼠都有一手；带去植物园温室，有机会闯进马蜂守着的育苗室。',
     tags: ['tool'],
     cost: 2,
     maxAtStart: 1,
@@ -172,7 +185,7 @@ export const items = [
   {
     id: 'rope',
     name: '绳索',
-    desc: '一捆结实的登山绳。拉人、吊东西、下竖井都用得上。',
+    desc: '一捆结实的登山绳。拉人、吊东西都用得上；带去地铁站，有机会下到通风竖井里。',
     tags: ['tool'],
     cost: 2,
     maxAtStart: 1,

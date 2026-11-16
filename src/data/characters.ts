@@ -44,7 +44,7 @@ export const characters = [
       {
         id: 'dragon_flame',
         name: '小火苗',
-        desc: '饱食 ≥80 的夜里，偶尔会用指尖的小火苗给大家烤热罐头，全员理智回升一点。',
+        desc: '饱食 ≥80 的夜里，偶尔会用指尖的小火苗给大家烘暖被窝，全员理智回升一点。',
         rules: [
           {
             id: 'dragon_roast',
@@ -59,7 +59,7 @@ export const characters = [
             effects: [
               { stat: 'sanity', of: 'all', add: 2 },
               {
-                log: '{self} 心情很好，用指尖的小火苗把大家的罐头烤得热乎乎的，还跑调地唱了两句。',
+                log: '{self} 心情很好，用指尖的小火苗把大家的被窝烘得暖烘烘的，还跑调地唱了两句。',
               },
             ],
           },
@@ -98,7 +98,7 @@ export const characters = [
       {
         id: 'fish_slump',
         name: '没饭瘫痪，饭后晕碳',
-        desc: '饱食 <30 时理智掉得更快，外出更危险、带回的东西更少；吃得太撑的夜里常常进入「晕碳中」。',
+        desc: '饱食 <30 时理智掉得更快，外出更危险、带回的东西更少；吃得太撑（饱食 ≥85）的夜里常常进入「晕碳中」，醒来后要隔一两天才会再晕。',
         rules: [
           {
             id: 'fish_starving',
@@ -117,9 +117,18 @@ export const characters = [
               all: [
                 { stat: 'satiety', of: 'self', gte: 85 },
                 { not: { hasStatus: 'food_coma', of: 'self' } },
+                { not: { flag: 'fish_coma_cooldown' } },
               ],
             },
             effects: [{ addStatus: 'food_coma', of: 'self' }],
+          },
+          {
+            // 晕碳醒来后的冷却（food_coma 的 onExit 写入），防止同一晚刚醒又晕
+            id: 'fish_coma_cooldown_end',
+            trigger: 'dayStart',
+            chance: 0.5,
+            when: { flag: 'fish_coma_cooldown' },
+            effects: [{ setFlag: 'fish_coma_cooldown', value: false }],
           },
         ],
       },
@@ -207,7 +216,7 @@ export const characters = [
             },
             effects: [
               { addStatus: 'despair', of: 'self' },
-              { log: '{self} 盯着昨晚出事的地方：“要是我多注意一点就好了……对不起，真的对不起。”' },
+              { log: '{self} 盯着昨天出事的地方：“要是我多注意一点就好了……对不起，真的对不起。”' },
             ],
           },
           {
@@ -444,7 +453,7 @@ export const characters = [
       {
         id: 'tangbao_clumsy',
         name: '胡说八道，光速滑跪',
-        desc: '外出时更危险，也不太会找工具和部件。饱食 <40 或理智 <50 的夜里偶尔好心办坏事，弄丢一份吃的或水，然后「面壁滑跪」。',
+        desc: '外出时更危险，也不太会找工具和部件。饱食 <40 或理智 <50 的夜里偶尔好心办坏事（可能弄丢一份吃的或水），然后「面壁滑跪」。',
         rules: [
           {
             id: 'tangbao_outside',
@@ -479,8 +488,13 @@ export const characters = [
                         then: [
                           { loseRandomItem: { tag: 'food', count: 1 } },
                           { log: '{self} 想给大家热一热吃的，结果把 {lost} 整个打翻在了地上。' },
+                          { setFlag: 'incident', value: true },
                         ],
-                        else: [{ log: '{self} 想帮忙整理仓库，结果把空货架整个推倒了。' }],
+                        else: [
+                          {
+                            log: '{self} 想帮忙整理仓库，结果把空货架整个推倒了。好在架子上本来就什么也没有。',
+                          },
+                        ],
                       },
                     ],
                   },
@@ -491,14 +505,16 @@ export const characters = [
                         then: [
                           { loseRandomItem: { tag: 'water', count: 1 } },
                           { log: '{self} 想给水桶“消消毒”，结果把 {lost} 全倒进了下水道。' },
+                          { setFlag: 'incident', value: true },
                         ],
-                        else: [{ log: '{self} 想帮忙整理仓库，结果把空货架整个推倒了。' }],
+                        else: [
+                          { log: '{self} 想给空水桶“消消毒”，结果把一整桶刷锅水泼在了自己身上。' },
+                        ],
                       },
                     ],
                   },
                 ],
               },
-              { setFlag: 'incident', value: true },
               { addStatus: 'kneeling', of: 'self' },
             ],
           },

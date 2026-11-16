@@ -1,4 +1,9 @@
-import type { EventDef } from '../../engine/schema';
+import type { Condition, EventDef } from '../../engine/schema';
+
+/** 库存里至少有一件东西（"丢/坏掉一样东西"之前先确认有东西可丢，否则文案里的 {lost} 会是空的） */
+const HAS_ANY: Condition = {
+  any: ['food', 'water', 'medicine', 'tool', 'part'].map((tag) => ({ hasTag: tag })),
+};
 
 export const cityCommonEvents = [
   {
@@ -19,9 +24,14 @@ export const cityCommonEvents = [
             effects: [{ item: 'door_lock', add: -1 }],
           },
           {
-            when: { not: { hasItem: 'door_lock' } },
+            when: { all: [{ not: { hasItem: 'door_lock' } }, HAS_ANY] },
             text: '门被撞开了，他们翻箱倒柜带走了一些东西：{lost}。',
             effects: [{ loseRandomItem: { count: 2 } }, { setFlag: 'incident', value: true }],
+          },
+          {
+            when: { all: [{ not: { hasItem: 'door_lock' } }, { not: HAS_ANY }] },
+            text: '门被撞开了。他们把屋子翻了个底朝天，什么值钱的也没找到，骂骂咧咧地走了。',
+            effects: [{ stat: 'sanity', of: 'all', add: -3 }],
           },
         ],
       },
@@ -52,6 +62,7 @@ export const cityCommonEvents = [
         outcomes: [
           {
             weight: 1,
+            when: HAS_ANY,
             text: '他们没发现储藏间，随便拿了点东西就走了：{lost}。',
             effects: [{ loseRandomItem: { count: 1 } }, { setFlag: 'incident', value: true }],
           },
@@ -69,7 +80,7 @@ export const cityCommonEvents = [
     text: '{self} 的脸红得像煮熟的虾，说话也有点飘。',
     tags: ['illness'],
     roles: { self: { where: { not: { hasStatus: 'sick', of: 'self' } } } },
-    cooldown: 3,
+    cooldown: 4,
     choices: [
       {
         id: 'medicine',
@@ -78,7 +89,7 @@ export const cityCommonEvents = [
         requiresHint: '没有感冒药',
         outcomes: [
           {
-            text: '药起效了，{self} 睡了一觉，第二天又能活蹦乱跳。',
+            text: '药起效了，{self} 睡了一觉，烧很快就退了。',
             effects: [
               { item: 'cold_medicine', add: -1 },
               { stat: 'health', of: 'self', add: 5 },
@@ -92,7 +103,7 @@ export const cityCommonEvents = [
         outcomes: [
           {
             weight: 2,
-            text: '{self} 硬撑了一整天，脸色越来越差，看上去撑不了多久了。',
+            text: '{self} 硬撑了一整天，脸色越来越差，终于还是病倒了。',
             effects: [{ addStatus: 'sick', of: 'self' }],
           },
           {
@@ -108,7 +119,9 @@ export const cityCommonEvents = [
     title: '老鼠开会',
     text: '储藏间里传来窸窸窣窣的声音。一群老鼠似乎把这里当成了自助餐厅。',
     tags: ['pest'],
-    cooldown: 4,
+    // 也会由"墙里的鼠窝"排队触发（不检查 when），所以结果仍按有没有吃的分开写
+    when: { hasTag: 'food' },
+    cooldown: 6,
     choices: [
       {
         id: 'drive_away',
@@ -116,15 +129,19 @@ export const cityCommonEvents = [
         outcomes: [
           {
             when: { hasItem: 'flashlight' },
-            text: '手电筒一照，老鼠们纷纷四散逃走。你们守住了粮食。',
+            text: '手电筒一照，老鼠们吱吱叫着四散逃走，什么也没来得及叼走。',
           },
           {
-            when: { not: { hasItem: 'flashlight' } },
+            when: { all: [{ not: { hasItem: 'flashlight' } }, { hasTag: 'food' }] },
             text: '黑灯瞎火的，老鼠溜得比你们追得快，还叼走了：{lost}。',
             effects: [
               { loseRandomItem: { tag: 'food', count: 1 } },
               { setFlag: 'incident', value: true },
             ],
+          },
+          {
+            when: { all: [{ not: { hasItem: 'flashlight' } }, { not: { hasTag: 'food' } }] },
+            text: '你们摸黑追了半天，老鼠在空荡荡的储藏间里转了一圈，失望地走了。',
           },
         ],
       },
@@ -145,11 +162,16 @@ export const cityCommonEvents = [
         text: '眼不见为净',
         outcomes: [
           {
-            text: '第二天一看，老鼠们吃得很尽兴：{lost}。',
+            when: { hasTag: 'food' },
+            text: '过了一晚再去看，老鼠们吃得很尽兴：{lost}。',
             effects: [
               { loseRandomItem: { tag: 'food', count: 2 } },
               { setFlag: 'incident', value: true },
             ],
+          },
+          {
+            when: { not: { hasTag: 'food' } },
+            text: '储藏间里本来就没什么可吃的，老鼠们啃了两口纸箱，悻悻地走了。',
           },
         ],
       },
@@ -174,7 +196,7 @@ export const cityCommonEvents = [
           },
           {
             weight: 1,
-            text: '水里有股怪味，{self} 喝完肚子疼了一天。',
+            text: '煮开了也盖不住一股铁锈味——看来有些东西是煮不掉的。{self} 喝完肚子疼了一天。',
             effects: [{ stat: 'health', of: 'self', add: -8 }],
           },
         ],
@@ -189,9 +211,14 @@ export const cityCommonEvents = [
             effects: [{ stat: 'sanity', of: 'self', add: 3 }],
           },
           {
-            when: { not: { hasItem: 'duct_tape' } },
+            when: { all: [{ not: { hasItem: 'duct_tape' } }, HAS_ANY] },
             text: '{self} 拿破布塞了半天，水还是顺着墙往下淌，把墙角的一样东西泡坏了：{lost}。',
             effects: [{ loseRandomItem: { count: 1 } }, { setFlag: 'incident', value: true }],
+          },
+          {
+            when: { all: [{ not: { hasItem: 'duct_tape' } }, { not: HAS_ANY }] },
+            text: '{self} 拿破布塞了半天，水还是顺着墙往下淌。好在墙角本来就空空的，什么也没泡坏。',
+            effects: [{ stat: 'sanity', of: 'self', add: -2 }],
           },
         ],
       },
@@ -200,7 +227,7 @@ export const cityCommonEvents = [
   {
     id: 'night_noise',
     title: '半夜的响动',
-    text: '{self} 在半夜听到走廊深处有奇怪的声音，像是什么东西在拖着脚走路。',
+    text: '半夜，{self} 听到走廊深处有奇怪的声音，像是什么东西在拖着脚走路。',
     tags: ['danger'],
     roles: { self: { where: { not: { hasStatus: 'injured', of: 'self' } } } },
     cooldown: 4,
@@ -212,7 +239,7 @@ export const cityCommonEvents = [
         requiresHint: '需要手电筒',
         outcomes: [
           {
-            text: '光束扫过去，只是一只迷路的流浪猫，嘴里还叼着一个罐头。{self} 小心翼翼地换了回来。',
+            text: '光束扫过去，只是一只迷路的流浪猫，嘴里还叼着一个罐头。{self} 学了半天猫叫，居然把罐头哄了下来。',
             effects: [{ item: 'canned_food', add: 1 }],
           },
         ],
@@ -235,7 +262,7 @@ export const cityCommonEvents = [
       {
         id: 'blanket',
         text: '蒙头装睡',
-        outcomes: [{ text: '第二天什么事也没有。有些事不知道比知道好。' }],
+        outcomes: [{ text: '天亮以后，什么事也没有。有些事不知道比知道好。' }],
       },
     ],
   },

@@ -220,7 +220,14 @@ function hud(store: Store, run: RunState, ctx: PanelCtx, hasScene: boolean): HTM
             h('span', { class: 'ticker__pin' }),
             h(
               'span',
-              { class: ['ticker__text', latest.kind === 'diary' && 'ticker__text--hand'] },
+              {
+                class: [
+                  'ticker__text',
+                  latest.kind === 'diary' && 'ticker__text--hand',
+                  latest.kind === 'death' && 'ticker__text--long',
+                ],
+                attrs: { title: latest.text },
+              },
               latest.text,
             ),
           ],

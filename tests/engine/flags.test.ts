@@ -109,3 +109,23 @@ describe('away 条件', () => {
     expect(evalCondition(env, {}, { away: 'any' })).toBe(false);
   });
 });
+
+describe('带在身上的道具对这趟外出生效', () => {
+  it('道具规则：在库存或本次携带中都算，且只算一次', async () => {
+    const { getModifier } = await import('../../src/engine');
+    const env = makeEnv({ items: { lock: 1 } }, (db) => {
+      db.items.find((i) => i.id === 'lock')!.rules = [
+        { id: 'lock_safe', modifiers: [{ key: 'expedition.danger', mul: 0.5 }] },
+      ];
+    });
+    const plan = { charId: 'alpha', locationId: 'shop', carry: ['lock'] };
+    expect(getModifier(env, 'expedition.danger', 0.2, 'alpha', { expedition: plan })).toBeCloseTo(
+      0.1,
+    );
+    delete env.run.inventory.lock; // 出发后离开库存
+    expect(getModifier(env, 'expedition.danger', 0.2, 'alpha', { expedition: plan })).toBeCloseTo(
+      0.1,
+    );
+    expect(getModifier(env, 'expedition.danger', 0.2, 'alpha')).toBeCloseTo(0.2); // 与外出无关的计算不算
+  });
+});
