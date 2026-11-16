@@ -55,6 +55,10 @@ export type Condition =
   | { difficulty: string }
   | { weather: string }
   | { at: string }
+  /** 本次外出的地点 id 等于该 flag 的值（flag 里存的是地点 id，常由 pickFlags 随机写入） */
+  | { atFlag: string }
+  /** 库存中有该 flag 所指的物品（flag 里存的是物品 id） */
+  | { hasFlagItem: string; count?: number }
   | { chance: number };
 
 const CmpSchema = z.strictObject(cmp);
@@ -79,6 +83,8 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
     z.strictObject({ difficulty: Id }),
     z.strictObject({ weather: Id }),
     z.strictObject({ at: Id }),
+    z.strictObject({ atFlag: z.string() }),
+    z.strictObject({ hasFlagItem: z.string(), count: z.number().int().min(1).optional() }),
     z.strictObject({ chance: Prob }),
   ]),
 );
@@ -89,6 +95,10 @@ export type Effect =
   | { addStatus: string; of: Target; duration?: number; chance?: number }
   | { removeStatus: string; of: Target }
   | { item: string; add: number }
+  /** 增减"该 flag 所指的物品"（flag 里存物品 id；不是有效物品则无效果） */
+  | { flagItem: string; add: number }
+  /** 从 from 中不重复地随机挑选，依次写入 flags（from 的长度须 ≥ flags 的长度） */
+  | { pickFlags: { flags: string[]; from: string[] } }
   | { loseRandomItem: { tag?: string; count?: number } }
   | { setFlag: string; value: boolean | number | string }
   | { addFlag: string; add: number }
@@ -117,6 +127,13 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     }),
     z.strictObject({ removeStatus: Id, of: TargetSchema }),
     z.strictObject({ item: Id, add: z.number().int() }),
+    z.strictObject({ flagItem: z.string(), add: z.number().int() }),
+    z.strictObject({
+      pickFlags: z.strictObject({
+        flags: z.array(z.string()).min(1),
+        from: z.array(z.string()).min(1),
+      }),
+    }),
     z.strictObject({
       loseRandomItem: z.strictObject({
         tag: z.string().optional(),
@@ -385,6 +402,18 @@ export const EndingSchema = z.strictObject({
 });
 export type EndingDef = z.infer<typeof EndingSchema>;
 
+/**
+ * 备忘：满足 when 时显示在日记本"备忘"页上的一句话（任务进度、已知线索等），文案模板同事件，
+ * 可用 {flag:x} {flagItem:x} {flagLocation:x}。没有 self / roles。order 小的排前面。
+ */
+export const NoteSchema = z.strictObject({
+  id: Id,
+  text: Text,
+  when: ConditionSchema.optional(),
+  order: z.number().optional(),
+});
+export type NoteDef = z.infer<typeof NoteSchema>;
+
 // ---------- 场景（仅界面使用：横屏舞台上各元素的摆放） ----------
 /** 舞台坐标一律是百分比：x 相对舞台宽度、y 相对舞台高度，原点在左上角 */
 const Pct = z.number().min(0).max(100);
@@ -475,6 +504,8 @@ export const ContentDBSchema = z.strictObject({
   endings: z.array(EndingSchema),
   /** 可选：没有场景的地图，界面退回到无背景的默认布局 */
   scenes: z.array(SceneSchema).optional(),
+  /** 可选：日记本"备忘"页的条目 */
+  notes: z.array(NoteSchema).optional(),
 });
 export type ContentDB = z.infer<typeof ContentDBSchema>;
 

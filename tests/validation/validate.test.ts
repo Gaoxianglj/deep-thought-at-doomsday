@@ -374,3 +374,54 @@ describe('正式数据', () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe('flag 驱动的新条件 / 效果 / 模板', () => {
+  const base = () => makeDB();
+  it('合法用法零 error', () => {
+    const db = base();
+    db.events[0].choices[0].outcomes[0].effects = [
+      { pickFlags: { flags: ['goal'], from: ['shop'] } },
+      { setFlag: 'need', value: 'lock' },
+      { flagItem: 'need', add: -1 },
+    ];
+    db.events[0].text = '去{flagLocation:goal}，带{flagItem:need}，还差 {flag:need} 件';
+    db.events[0].when = { all: [{ hasFlagItem: 'need' }, { not: { atFlag: 'goal' } }] };
+    db.notes = [{ id: 'memo', text: '目标：{flagLocation:goal}', when: { flag: 'goal' } }];
+    const errs = validateContent(db).filter((i) => i.level === 'error');
+    expect(errs).toEqual([]);
+  });
+  it('flag 被当作地点读，却可能写入不存在的地点', () => {
+    const db = base();
+    db.events[0].choices[0].outcomes[0].effects = [
+      { pickFlags: { flags: ['goal'], from: ['shop', 'moon_base'] } },
+    ];
+    db.events[0].when = { atFlag: 'goal' };
+    const msgs = validateContent(db).map((i) => i.message);
+    expect(msgs.some((m) => m.includes('moon_base'))).toBe(true);
+  });
+  it('同一 flag 既当物品又当地点', () => {
+    const db = base();
+    db.events[0].choices[0].outcomes[0].effects = [{ setFlag: 'x', value: 'shop' }];
+    db.events[0].when = { all: [{ atFlag: 'x' }, { hasFlagItem: 'x' }] };
+    const msgs = validateContent(db).map((i) => i.message);
+    expect(msgs.some((m) => m.includes('又被当作'))).toBe(true);
+  });
+  it('pickFlags 的 from 太少', () => {
+    const db = base();
+    db.events[0].choices[0].outcomes[0].effects = [
+      { pickFlags: { flags: ['a', 'b'], from: ['shop'] } },
+    ];
+    const msgs = validateContent(db).map((i) => i.message);
+    expect(msgs.some((m) => m.includes('无法不重复地挑选'))).toBe(true);
+  });
+  it('备忘里的未知占位符与重复 id', () => {
+    const db = base();
+    db.notes = [
+      { id: 'n', text: '{who}' },
+      { id: 'n', text: 'ok' },
+    ];
+    const msgs = validateContent(db).map((i) => i.message);
+    expect(msgs.some((m) => m.includes('{who}'))).toBe(true);
+    expect(msgs.some((m) => m.includes('重复'))).toBe(true);
+  });
+});

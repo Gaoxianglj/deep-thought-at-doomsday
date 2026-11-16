@@ -176,6 +176,14 @@ export function writeDiary(env: Env): void {
   }
 }
 
+/** 日记本"备忘"页：当前满足 when 的备忘（已套模板），按 order 排序 */
+export function getNotes(env: Env): { id: string; text: string }[] {
+  return [...env.content.notes.values()]
+    .filter((n) => evalCondition(env, {}, n.when))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((n) => ({ id: n.id, text: formatText(env, {}, n.text) }));
+}
+
 export interface EventView {
   eventId: string;
   title: string;

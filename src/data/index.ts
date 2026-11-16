@@ -8,6 +8,7 @@ import { events } from './events';
 import { items } from './items';
 import { locations } from './locations';
 import { maps } from './maps';
+import { notes } from './notes';
 import { scenes } from './scenes';
 import { stats } from './stats';
 import { statuses } from './statuses';
@@ -27,4 +28,5 @@ export const contentDB: ContentDB = {
   diary,
   endings,
   scenes,
+  notes,
 };

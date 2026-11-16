@@ -2,7 +2,7 @@ export * from './schema';
 export { buildContent, type Content } from './content';
 export { applyAction, getArtState, type Action, type ActionResult } from './game';
 export { newRun, validateSetup, pointsCost, type NewRunOptions } from './setup';
-export { getEventView, type EventView } from './events';
+export { getEventView, getNotes, type EventView } from './events';
 export { validateExpeditionPlan } from './expedition';
 export { evalCondition } from './conditions';
 export { getModifier } from './rules';

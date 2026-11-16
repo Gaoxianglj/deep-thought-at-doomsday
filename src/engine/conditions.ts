@@ -51,6 +51,15 @@ export function evalCondition(env: Env, scope: Scope, cond: Condition | undefine
     const exp = scope.expedition ?? run.expedition;
     return !!exp && exp.locationId === cond.at;
   }
+  if ('atFlag' in cond) {
+    const exp = scope.expedition ?? run.expedition;
+    const target = run.flags[cond.atFlag];
+    return !!exp && typeof target === 'string' && exp.locationId === target;
+  }
+  if ('hasFlagItem' in cond) {
+    const id = run.flags[cond.hasFlagItem];
+    return typeof id === 'string' && itemCount(run, id) >= (cond.count ?? 1);
+  }
   if ('flag' in cond) {
     const v = run.flags[cond.flag];
     if (cond.is !== undefined) return v === cond.is;

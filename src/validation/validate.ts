@@ -15,6 +15,7 @@ import {
   ItemSchema,
   LocationSchema,
   MapSchema,
+  NoteSchema,
   StatSchema,
   StatusSchema,
   WeatherSchema,
@@ -24,6 +25,7 @@ import type {
   ContentDB,
   Effect,
   GameConfig,
+  NoteDef,
   Rule,
   StatDef,
   Target,
@@ -96,6 +98,8 @@ const COND_PRIMARY = [
   'difficulty',
   'weather',
   'at',
+  'atFlag',
+  'hasFlagItem',
   'chance',
 ];
 const EFFECT_PRIMARY = [
@@ -103,6 +107,8 @@ const EFFECT_PRIMARY = [
   'addStatus',
   'removeStatus',
   'item',
+  'flagItem',
+  'pickFlags',
   'loseRandomItem',
   'setFlag',
   'addFlag',
@@ -363,6 +369,27 @@ export function validateContent(db: unknown): Issue[] {
   const unlockRefs = new Set<string>();
   const flagSet = new Set<string>();
   const flagRead = new Map<string, string>();
+  /** flag 被写入过的字符串值（setFlag 与 pickFlags.from），以及它被当作什么来读 */
+  const flagValues = new Map<string, Set<string>>();
+  const flagUsedAs = new Map<string, { cat: 'items' | 'locations'; path: string }>();
+  const readFlag = (flag: string, path: string) => {
+    if (!flagRead.has(flag)) flagRead.set(flag, path);
+  };
+  const flagAs = (flag: string, cat: 'items' | 'locations', path: string) => {
+    readFlag(flag, path);
+    const prev = flagUsedAs.get(flag);
+    if (prev && prev.cat !== cat) {
+      error(
+        path,
+        `flag "${flag}" 在别处被当作${CAT_NAME[prev.cat]}使用，这里又被当作${CAT_NAME[cat]}`,
+      );
+    } else if (!prev) flagUsedAs.set(flag, { cat, path });
+  };
+  const flagValue = (flag: string, v: unknown) => {
+    if (typeof v !== 'string') return;
+    if (!flagValues.has(flag)) flagValues.set(flag, new Set());
+    flagValues.get(flag)!.add(v);
+  };
 
   // ---------- 通用辅助 ----------
   const ref = (cat: Cat, id: string, path: string, what: string) => {
@@ -382,6 +409,18 @@ export function validateContent(db: unknown): Issue[] {
       if (key.startsWith('item:')) {
         const id = key.slice(5);
         if (!ids.items.has(id)) error(path, `文案引用了不存在的物品 "${id}"（{${key}}）`);
+        continue;
+      }
+      if (key.startsWith('flag:')) {
+        readFlag(key.slice(5), path);
+        continue;
+      }
+      if (key.startsWith('flagItem:')) {
+        flagAs(key.slice(9), 'items', path);
+        continue;
+      }
+      if (key.startsWith('flagLocation:')) {
+        flagAs(key.slice(13), 'locations', path);
         continue;
       }
       if (key === 'lost' && opts.lost) continue;
@@ -431,6 +470,8 @@ export function validateContent(db: unknown): Issue[] {
     else if ('difficulty' in c) ref('difficulties', c.difficulty, path, '条件 difficulty');
     else if ('weather' in c) ref('weathers', c.weather, path, '条件 weather');
     else if ('at' in c) ref('locations', c.at, path, '条件 at');
+    else if ('atFlag' in c) flagAs(c.atFlag, 'locations', path);
+    else if ('hasFlagItem' in c) flagAs(c.hasFlagItem, 'items', path);
     else if ('chance' in c) {
       if (ctx.noChance)
         warn(path, '此处使用 { chance } 随机条件，每次检查都会重新掷骰，请确认是否有意');
@@ -464,8 +505,25 @@ export function validateContent(db: unknown): Issue[] {
     } else if ('item' in e) {
       ref('items', e.item, path, '效果 item');
       if (e.add > 0) itemProduced.add(e.item);
-    } else if ('setFlag' in e) flagSet.add(e.setFlag);
-    else if ('addFlag' in e) flagSet.add(e.addFlag);
+    } else if ('flagItem' in e) {
+      flagAs(e.flagItem, 'items', path);
+    } else if ('pickFlags' in e) {
+      const { flags, from } = e.pickFlags;
+      if (from.length < flags.length) {
+        error(
+          path,
+          `pickFlags 的 from（${from.length} 个）少于 flags（${flags.length} 个），无法不重复地挑选`,
+        );
+      }
+      if (new Set(from).size !== from.length) warn(path, 'pickFlags 的 from 中有重复的值');
+      for (const f of flags) {
+        flagSet.add(f);
+        from.forEach((v) => flagValue(f, v));
+      }
+    } else if ('setFlag' in e) {
+      flagSet.add(e.setFlag);
+      flagValue(e.setFlag, e.value);
+    } else if ('addFlag' in e) flagSet.add(e.addFlag);
     else if ('joinParty' in e) ref('characters', e.joinParty, path, '效果 joinParty');
     else if ('leaveParty' in e) {
       target(e.leaveParty, path, ctx);
@@ -694,6 +752,31 @@ export function validateContent(db: unknown): Issue[] {
 
   // ---------- 结局 ----------
   for (const e of D.endings) condOpt(e.when, `endings[${e.id}].when`, ROLELESS_NC);
+
+  // ---------- 备忘 ----------
+  const noteList = Array.isArray(raw.notes)
+    ? (raw.notes as unknown[]).filter((n) => NoteSchema.safeParse(n).success)
+    : [];
+  const noteIds = new Set<string>();
+  for (const n of noteList as NoteDef[]) {
+    const p = `notes[${n.id}]`;
+    if (noteIds.has(n.id)) error(p, `备忘 id "${n.id}" 重复`);
+    noteIds.add(n.id);
+    checkText(n.text, `${p}.text`, null);
+    condOpt(n.when, `${p}.when`, ROLELESS_NC);
+  }
+
+  // ---------- flag 里存的 id 必须是对应类别里存在的 ----------
+  for (const [flag, use] of flagUsedAs) {
+    for (const v of flagValues.get(flag) ?? []) {
+      if (!ids[use.cat].has(v)) {
+        error(
+          use.path,
+          `flag "${flag}" 被当作${CAT_NAME[use.cat]}使用，但它可能被写入 "${v}"，这不是已知的${CAT_NAME[use.cat]} id`,
+        );
+      }
+    }
+  }
 
   // ---------- 配置 ----------
   if (config) {

@@ -81,6 +81,19 @@ export function formatText(env: Env, scope: Scope, text: string): string {
   return text.replace(/\{([a-zA-Z0-9_:]+)\}/g, (raw, key: string) => {
     if (key === 'day') return String(run.day);
     if (key.startsWith('item:')) return content.items.get(key.slice(5))?.name ?? raw;
+    // flag 的值，以及把 flag 里存的物品 / 地点 id 显示成名称（未设置时保留原样，校验脚本会提示）
+    if (key.startsWith('flag:')) {
+      const v = run.flags[key.slice(5)];
+      return v === undefined ? raw : String(v);
+    }
+    if (key.startsWith('flagItem:')) {
+      const v = run.flags[key.slice(9)];
+      return (typeof v === 'string' && content.items.get(v)?.name) || raw;
+    }
+    if (key.startsWith('flagLocation:')) {
+      const v = run.flags[key.slice(13)];
+      return (typeof v === 'string' && content.locations.get(v)?.name) || raw;
+    }
     if (scope.vars && key in scope.vars) return scope.vars[key];
     const charId = key === 'self' ? (scope.self ?? scope.roles?.self) : scope.roles?.[key];
     if (charId) return content.characters.get(charId)?.name ?? raw;

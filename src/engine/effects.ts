@@ -12,7 +12,7 @@ import {
   type Env,
   type Scope,
 } from './context';
-import { pickWeighted, rollChance } from './rng';
+import { nextFloat, pickWeighted, rollChance } from './rng';
 import { getModifier } from './rules';
 import type { Effect } from './schema';
 
@@ -61,6 +61,20 @@ function applyOne(env: Env, scope: Scope, e: Effect): void {
   }
   if ('item' in e) {
     if (content.items.has(e.item)) changeItem(run, e.item, e.add);
+    return;
+  }
+  if ('flagItem' in e) {
+    const id = run.flags[e.flagItem];
+    if (typeof id === 'string' && content.items.has(id)) changeItem(run, id, e.add);
+    return;
+  }
+  if ('pickFlags' in e) {
+    const pool = [...e.pickFlags.from];
+    for (const flag of e.pickFlags.flags) {
+      if (!pool.length) break;
+      const i = Math.min(pool.length - 1, Math.floor(nextFloat(run) * pool.length));
+      run.flags[flag] = pool.splice(i, 1)[0];
+    }
     return;
   }
   if ('loseRandomItem' in e) {
