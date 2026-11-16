@@ -41,6 +41,8 @@ export type Condition =
   | { not: Condition }
   | ({ stat: string; of: Target } & Cmp)
   | { hasStatus: string; of: Target }
+  /** 目标此刻正在外出（常用于修正：`{ away: 'self' }` = 被计算的角色在路上） */
+  | { away: Target }
   | { hasItem: string; count?: number }
   | { hasTag: string; count?: number }
   | { carrying: string }
@@ -69,6 +71,7 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
     z.strictObject({ not: ConditionSchema }),
     z.strictObject({ stat: Id, of: TargetSchema, ...cmp }),
     z.strictObject({ hasStatus: Id, of: TargetSchema }),
+    z.strictObject({ away: TargetSchema }),
     z.strictObject({ hasItem: Id, count: z.number().int().min(1).optional() }),
     z.strictObject({ hasTag: z.string(), count: z.number().int().min(1).optional() }),
     z.strictObject({ carrying: Id }),
@@ -99,7 +102,8 @@ export type Effect =
   | { flagItem: string; add: number }
   /** 从 from 中不重复地随机挑选，依次写入 flags（from 的长度须 ≥ flags 的长度） */
   | { pickFlags: { flags: string[]; from: string[] } }
-  | { loseRandomItem: { tag?: string; count?: number } }
+  /** pick: 'random'（默认，按库存数量加权）| 'cheapest'（先拿开局价格最低的，适合"玩家主动交出"） */
+  | { loseRandomItem: { tag?: string; count?: number; pick?: 'random' | 'cheapest' } }
   | { setFlag: string; value: boolean | number | string }
   | { addFlag: string; add: number }
   | { joinParty: string }
@@ -138,6 +142,7 @@ export const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
       loseRandomItem: z.strictObject({
         tag: z.string().optional(),
         count: z.number().int().min(1).optional(),
+        pick: z.enum(['random', 'cheapest']).optional(),
       }),
     }),
     z.strictObject({ setFlag: z.string(), value: z.union([z.boolean(), z.number(), z.string()]) }),
@@ -362,6 +367,8 @@ export const ChoiceSchema = z.strictObject({
   text: Text,
   requires: ConditionSchema.optional(),
   requiresHint: z.string().optional(),
+  /** requires 不满足时不显示这个选项（而不是置灰）。用于"某角色在场才有"的选项，免得剧透没见过的角色 */
+  hideIfLocked: z.boolean().optional(),
   outcomes: z.array(OutcomeSchema).min(1),
 });
 export const EventSchema = z.strictObject({
@@ -466,7 +473,7 @@ export const ConfigSchema = z.strictObject({
 });
 /**
  * 引擎会用到的文案键及可用变量：
- * death {self} | statusEnter/statusExit/statusResisted {self} {status} | rationMissing {self} {item}
+ * death {self} {causes}（死前身上的状态名，没有状态时为归零的属性名） | statusEnter/statusExit/statusResisted {self} {status} | rationMissing {self} {item}
  * statusResisted：addStatus 效果的概率判定没过（含特性压低 gainChance）时写的日志
  * expeditionDepart/expeditionReturn/expeditionInjured/expeditionLost {self} {location} {loot} {lootCount}
  * expeditionCancelled {self} {location}（入夜时外出计划已不合法，例如携带物被吃掉）

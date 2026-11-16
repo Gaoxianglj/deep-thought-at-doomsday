@@ -85,3 +85,27 @@ describe('flag 驱动的随机目标', () => {
     ]);
   });
 });
+
+describe('loseRandomItem 的 pick', () => {
+  it('cheapest：先拿价格最低的，同价拿库存多的', () => {
+    const env = makeEnv({ items: { can: 2, bottle: 3, medkit: 1 } }); // can 2 点、bottle 1 点、medkit 4 点
+    applyEffects(env, {}, [{ loseRandomItem: { count: 4, pick: 'cheapest' } }]);
+    expect(env.run.inventory).toEqual({ can: 1, medkit: 1 });
+  });
+  it('cheapest + tag', () => {
+    const env = makeEnv({ items: { can: 2, bottle: 3 } });
+    applyEffects(env, {}, [{ loseRandomItem: { tag: 'food', count: 1, pick: 'cheapest' } }]);
+    expect(env.run.inventory).toEqual({ can: 1, bottle: 3 });
+  });
+});
+
+describe('away 条件', () => {
+  it('self / { id } 在外出时为真，在家时为假', () => {
+    const env = makeEnv();
+    expect(evalCondition(env, { self: 'alpha' }, { away: 'self' })).toBe(false);
+    env.run.characters.alpha.where = 'away';
+    expect(evalCondition(env, { self: 'alpha' }, { away: 'self' })).toBe(true);
+    expect(evalCondition(env, {}, { away: { id: 'alpha' } })).toBe(true);
+    expect(evalCondition(env, {}, { away: 'any' })).toBe(false);
+  });
+});

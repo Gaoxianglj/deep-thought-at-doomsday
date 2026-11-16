@@ -45,7 +45,7 @@ export const notes = [
   },
   {
     id: 'caravan_progress',
-    text: '南下车队：还差水 {flag:caravan_water_left} 份、食物 {flag:caravan_food_left} 份。车队每 2 天经过一次，最多来 8 次。',
+    text: '南下车队：还差水 {flag:caravan_water_left} 份、食物 {flag:caravan_food_left} 份。车队每两天经过一次，但不会一直等下去。',
     when: { all: [{ flag: 'caravan_known' }, { not: { flag: 'caravan_gone' } }] },
     order: 30,
   },

@@ -10,13 +10,13 @@ import type { Effect, EventDef } from '../../engine/schema';
 const CARAVAN_BATCH = 1; // 每次上交的份数
 const CARAVAN_GAP = 2; // 来访间隔（天）
 const CARAVAN_VISITS = 6; // 最多来访次数（含谈妥后的第一次）
-const CARAVAN_WATER = [3, 4, 5]; // 本局随机需要的水
-const CARAVAN_FOOD = [3, 4, 5]; // 本局随机需要的食物
+const CARAVAN_WATER = [5, 6, 7]; // 本局随机需要的水
+const CARAVAN_FOOD = [4, 5, 6]; // 本局随机需要的食物
 const CN = ['零', '一', '两', '三', '四', '五', '六', '七', '八', '九', '十'];
 
 /** 上交 CARAVAN_BATCH 份某类物资：扣库存、扣 flag，扣成负数就拉回 0 */
 const handIn = (tag: 'water' | 'food', flag: string): Effect[] => [
-  { loseRandomItem: { tag, count: CARAVAN_BATCH } },
+  { loseRandomItem: { tag, count: CARAVAN_BATCH, pick: 'cheapest' } },
   { addFlag: flag, add: -CARAVAN_BATCH },
   { if: { flag, lt: 0 }, then: [{ setFlag: flag, value: 0 }] },
 ];
@@ -147,7 +147,7 @@ export const rescueEvents = [
     text: '一阵喇叭声把你们从午睡里吵醒。几辆焊满铁板的卡车停在楼下，领头的女人敲了敲铁门：“我们往南走，那边据说还有电。想跟着走的话，路上的水和吃的得自己出一份。”',
     weight: 3,
     cooldown: 3,
-    when: { all: [{ day: { gte: 5 } }, { not: { flag: 'caravan_known' } }] },
+    when: { all: [{ day: { gte: 7 } }, { not: { flag: 'caravan_known' } }] },
     choices: [
       {
         id: 'talk',
@@ -195,7 +195,7 @@ export const rescueEvents = [
             { flag: 'caravan_water_left', gte: 1 },
           ],
         },
-        requiresHint: `需要 ${CARAVAN_BATCH} 份水（水已交齐则不用再交）`,
+        requiresHint: `需要库存里有 ${CARAVAN_BATCH} 份水，且水还没交齐`,
         outcomes: [
           {
             when: {

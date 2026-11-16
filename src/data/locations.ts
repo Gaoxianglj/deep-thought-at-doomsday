@@ -132,7 +132,7 @@ export const locations = [
     map: 'city_ruins',
     distance: 2,
     danger: 0.24,
-    failSplit: { injured: 3, lost: 2 },
+    failSplit: { injured: 3, lost: 1 },
     injury: [
       { addStatus: 'injured', of: 'self', duration: 5 },
       { stat: 'health', of: 'self', add: -15 },
@@ -161,7 +161,7 @@ export const locations = [
     map: 'city_ruins',
     distance: 2,
     danger: 0.3,
-    failSplit: { injured: 3, lost: 2 },
+    failSplit: { injured: 3, lost: 1 },
     injury: [
       { addStatus: 'injured', of: 'self', duration: 6 },
       { stat: 'health', of: 'self', add: -18 },
@@ -183,7 +183,7 @@ export const locations = [
     map: 'city_ruins',
     distance: 3,
     danger: 0.3,
-    failSplit: { injured: 3, lost: 2 },
+    failSplit: { injured: 3, lost: 1 },
     injury: [
       { addStatus: 'injured', of: 'self', duration: 6 },
       { stat: 'health', of: 'self', add: -20 },
@@ -207,7 +207,7 @@ export const locations = [
             { not: { flag: 'market_vault_opened' } },
           ],
         },
-        chance: 0.25,
+        chance: 0.4,
         event: 'market_vault',
       },
     ],
@@ -219,7 +219,7 @@ export const locations = [
     map: 'city_ruins',
     distance: 3,
     danger: 0.26,
-    failSplit: { injured: 3, lost: 2 },
+    failSplit: { injured: 3, lost: 1 },
     injury: [
       { addStatus: 'injured', of: 'self', duration: 6 },
       { stat: 'health', of: 'self', add: -20 },
@@ -247,7 +247,7 @@ export const locations = [
     map: 'city_ruins',
     distance: 3,
     danger: 0.25,
-    failSplit: { injured: 3, lost: 2 },
+    failSplit: { injured: 3, lost: 1 },
     injury: [
       { addStatus: 'injured', of: 'self', duration: 6 },
       { stat: 'health', of: 'self', add: -18 },

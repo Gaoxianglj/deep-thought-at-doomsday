@@ -124,7 +124,9 @@ function charLine(content: Content, run: RunState, id: string): string {
   const name = content.characters.get(id)?.name ?? id;
   if (ch.where === 'dead') return `  ${name}（已死亡）`;
   if (ch.where === 'gone') return `  ${name}（已离开）`;
-  const stats = content.db.stats.map((s) => `${s.name} ${ch.stats[s.id]}`).join('  ');
+  const stats = content.db.stats
+    .map((s) => `${s.name} ${Math.round(ch.stats[s.id] ?? s.initial)}`)
+    .join('  ');
   const status = ch.statuses.length
     ? `  状态: ${ch.statuses
         .map(
@@ -353,6 +355,11 @@ export function parseCommand(content: Content, run: RunState, input: string): Ac
         const it = item(token);
         if (!it) return `不认识的携带物: ${token}`;
         carry.push(it.id);
+      }
+      const planned = run.plan.expedition;
+      if (planned && planned.charId !== ch.id) {
+        const who = content.characters.get(planned.charId)?.name ?? planned.charId;
+        return `今晚已经安排 ${who} 外出（同一时间只能有一个人外出）。要换人请先 cancel`;
       }
       const plan: Action = { type: 'planExpedition', charId: ch.id, locationId: loc.id, carry };
       const vehicle = loc.vehicle ?? content.maps.get(run.mapId)?.expedition.vehicle;

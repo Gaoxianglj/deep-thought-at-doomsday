@@ -63,7 +63,7 @@ export const MODIFIER_KEY_PATTERNS: readonly {
 
 /** config.texts 各键允许的额外变量（{self} {day} {item:id} 恒可用） */
 const TEXT_VARS: Record<string, readonly string[]> = {
-  death: [],
+  death: ['causes'],
   statusEnter: ['status'],
   statusExit: ['status'],
   statusResisted: ['status'],
@@ -84,6 +84,7 @@ const COND_PRIMARY = [
   'not',
   'stat',
   'hasStatus',
+  'away',
   'hasItem',
   'hasTag',
   'carrying',
@@ -459,6 +460,14 @@ export function validateContent(db: unknown): Issue[] {
     } else if ('hasStatus' in c) {
       ref('statuses', c.hasStatus, path, '条件 hasStatus');
       target(c.of, path, ctx);
+    } else if ('away' in c) {
+      target(c.away, path, ctx);
+      if (c.away === 'any' || c.away === 'all' || c.away === 'random') {
+        warn(
+          path,
+          `{ away: '${c.away}' } 没有意义（any/all/random 只指向在庇护所的人），请用 self、expeditioner、{ id } 或 { role }`,
+        );
+      }
     } else if ('hasItem' in c) ref('items', c.hasItem, path, '条件 hasItem');
     else if ('carrying' in c) ref('items', c.carrying, path, '条件 carrying');
     else if ('flag' in c) {
@@ -601,7 +610,7 @@ export function validateContent(db: unknown): Issue[] {
     else if (s.initial < s.min || s.initial > s.max) {
       error(p, `initial (${s.initial}) 超出范围 [${s.min}, ${s.max}]`);
     }
-    checkText(s.deathText, `${p}.deathText`, null);
+    checkText(s.deathText, `${p}.deathText`, null, { vars: ['causes'] });
   }
 
   // ---------- 状态 ----------

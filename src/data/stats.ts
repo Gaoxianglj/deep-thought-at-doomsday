@@ -11,7 +11,7 @@ export const stats = [
     initial: 100,
     dailyDelta: 0,
     deathAtZero: true,
-    deathText: '{self} 的健康归零，安静地倒在了庇护所的角落。',
+    deathText: '{self} 没能撑过这一夜。（死因：{causes}）',
   },
   { id: 'sanity', name: '理智', min: 0, max: 100, initial: 80, dailyDelta: -2 },
 ] satisfies StatDef[];

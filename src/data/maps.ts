@@ -92,6 +92,29 @@ export const maps = [
     diaryPerDay: 1,
     expedition: { carrySlots: 2 },
     rules: [
+      // 节食的代价：饱食或水分低于 40 时，理智每天额外 −1，外出也更危险（饿着肚子出门容易出事）
+      {
+        id: 'weak_hungry',
+        when: { stat: 'satiety', of: 'self', lt: 40 },
+        modifiers: [
+          { key: 'stat.sanity.dailyDelta', add: -1 },
+          { key: 'expedition.danger', mul: 1.2 },
+        ],
+      },
+      {
+        id: 'weak_thirsty',
+        when: { stat: 'hydration', of: 'self', lt: 40 },
+        modifiers: [
+          { key: 'stat.sanity.dailyDelta', add: -1 },
+          { key: 'expedition.danger', mul: 1.2 },
+        ],
+      },
+      // 外出的人在路上会自己找点吃喝：途中水分消耗降到 70%（否则远行常常渴死在半路，玩家只看到"人没回来"）
+      {
+        id: 'forage_on_trip',
+        when: { away: 'self' },
+        modifiers: [{ key: 'stat.hydration.dailyDelta', mul: 0.7 }],
+      },
       rollover('incident'),
       rollover('rule_broken'),
       {

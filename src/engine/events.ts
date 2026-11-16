@@ -207,9 +207,10 @@ export function getEventView(env: Env): EventView | null {
     text: formatText(env, scope, def.text),
     art: def.art,
     roles: pending.roles,
-    choices: def.choices.map((c) => {
+    choices: def.choices.flatMap((c) => {
       // 注意：requires 里不要用 chance（每次渲染都会重掷）
       const enabled = evalCondition(env, scope, c.requires);
+      if (!enabled && c.hideIfLocked) return [];
       return {
         id: c.id,
         text: formatText(env, scope, c.text),

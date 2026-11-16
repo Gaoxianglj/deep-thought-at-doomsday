@@ -35,6 +35,12 @@ export function evalCondition(env: Env, scope: Scope, cond: Condition | undefine
     return cond.of === 'all' ? ids.length > 0 && ids.every(test) : ids.some(test);
   }
 
+  if ('away' in cond) {
+    // 'any' / 'all' 在条件里只看在庇护所的人，对"是否外出"没有意义，所以这里只认单个目标
+    return resolveTargets(env, scope, cond.away, 'cond').some(
+      (id) => run.characters[id].where === 'away',
+    );
+  }
   if ('hasItem' in cond) return itemCount(run, cond.hasItem) >= (cond.count ?? 1);
   if ('hasTag' in cond) {
     let total = 0;

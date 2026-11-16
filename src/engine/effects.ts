@@ -84,7 +84,10 @@ function applyOne(env: Env, scope: Scope, e: Effect): void {
       const pool = Object.keys(run.inventory).filter(
         (id) => !tag || content.items.get(id)?.tags.includes(tag),
       );
-      const id = pickWeighted(run, pool, (x) => run.inventory[x]);
+      const id =
+        e.loseRandomItem.pick === 'cheapest'
+          ? cheapest(env, pool)
+          : pickWeighted(run, pool, (x) => run.inventory[x]);
       if (!id) break;
       changeItem(run, id, -1);
       lost.push(content.items.get(id)?.name ?? id);
@@ -152,6 +155,17 @@ function applyOne(env: Env, scope: Scope, e: Effect): void {
   return exhaustive;
 }
 
+/** 开局价格最低的物品（没有价格的视为最贵）；同价时库存多的优先，再按 id 保证确定性 */
+function cheapest(env: Env, pool: string[]): string | undefined {
+  const cost = (id: string) => env.content.items.get(id)?.cost ?? Number.POSITIVE_INFINITY;
+  return [...pool].sort(
+    (a, b) =>
+      cost(a) - cost(b) ||
+      (env.run.inventory[b] ?? 0) - (env.run.inventory[a] ?? 0) ||
+      a.localeCompare(b),
+  )[0];
+}
+
 /** 施加状态（已有则刷新持续时间）。不掷 gainChance —— 那是 addStatus 效果的事。 */
 export function addStatus(env: Env, charId: string, statusId: string, duration?: number): void {
   const { run, content } = env;
@@ -192,6 +206,7 @@ export function removeFromParty(
   charId: string,
   reason: 'dead' | 'gone',
   text?: string,
+  vars: Record<string, string> = {},
 ): void {
   const { run } = env;
   const ch = run.characters[charId];
@@ -201,8 +216,8 @@ export function removeFromParty(
   if (run.plan.expedition?.charId === charId) delete run.plan.expedition;
   if (run.expedition?.charId === charId) run.expedition = null;
   const kind = reason === 'dead' ? 'death' : 'leave';
-  if (text) addLog(run, kind, formatText(env, { self: charId }, text));
-  else if (reason === 'dead') sysLog(env, 'death', kind, { self: charId });
+  if (text) addLog(run, kind, formatText(env, { self: charId, vars }, text));
+  else if (reason === 'dead') sysLog(env, 'death', kind, { self: charId }, vars);
   run.counters[kind] = (run.counters[kind] ?? 0) + 1;
 }
 
@@ -214,6 +229,10 @@ export function checkDeaths(env: Env): void {
     const fatal = content.db.stats.find(
       (s) => s.deathAtZero && (ch.stats[s.id] ?? s.initial) <= s.min,
     );
-    if (fatal) removeFromParty(env, id, 'dead', fatal.deathText);
+    if (!fatal) continue;
+    // {causes}：死前身上的状态名（如"口渴、饥饿"），没有状态时为归零的属性名——让玩家知道是怎么死的
+    const names = ch.statuses.map((s) => content.statuses.get(s.id)?.name).filter(Boolean);
+    const causes = names.length ? names.join('、') : fatal.name;
+    removeFromParty(env, id, 'dead', fatal.deathText, { causes });
   }
 }

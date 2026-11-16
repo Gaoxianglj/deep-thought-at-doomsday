@@ -13,7 +13,7 @@ export const config = {
     rice: '大米',
   },
   texts: {
-    death: '{self} 倒下了，再也没能站起来。',
+    death: '{self} 倒下了，再也没能站起来。（死因：{causes}）',
     statusEnter: '{self} 进入了「{status}」状态。',
     statusExit: '{self} 摆脱了「{status}」状态。',
     statusResisted: '{self} 扛住了「{status}」，没有受到影响。',
