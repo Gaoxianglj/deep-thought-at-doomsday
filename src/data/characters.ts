@@ -59,7 +59,7 @@ export const characters = [
             effects: [
               { stat: 'sanity', of: 'all', add: 2 },
               {
-                log: '{self} 心情很好，用指尖的小火苗把大家的被窝烘得暖烘烘的，还跑调地唱了两句。',
+                log: '{self} 心情很好，用指尖的小火苗把被窝烘得暖烘烘的，还跑调地唱了两句。',
               },
             ],
           },
@@ -286,7 +286,7 @@ export const characters = [
             },
             effects: [
               { addStatus: 'misread', of: 'self' },
-              { log: '大家问 {self} 水放在哪，她一本正经地递过来一块三角形铁片。' },
+              { log: '{self} 一本正经地把一块三角形铁片泡进了水桶，说这样水会“更有结构感”。' },
             ],
           },
         ],
@@ -435,13 +435,18 @@ export const characters = [
             trigger: 'dayEnd',
             chance: 0.3,
             when: {
-              not: {
-                any: [
-                  { hasStatus: 'sick', of: 'self' },
-                  { hasStatus: 'insane', of: 'self' },
-                  { hasStatus: 'kneeling', of: 'self' },
-                ],
-              },
+              all: [
+                { shelterCount: { gte: 2 } },
+                {
+                  not: {
+                    any: [
+                      { hasStatus: 'sick', of: 'self' },
+                      { hasStatus: 'insane', of: 'self' },
+                      { hasStatus: 'kneeling', of: 'self' },
+                    ],
+                  },
+                },
+              ],
             },
             effects: [
               { stat: 'sanity', of: 'random', add: 4 },
@@ -487,7 +492,7 @@ export const characters = [
                         if: { hasTag: 'food' },
                         then: [
                           { loseRandomItem: { tag: 'food', count: 1 } },
-                          { log: '{self} 想给大家热一热吃的，结果把 {lost} 整个打翻在了地上。' },
+                          { log: '{self} 想把吃的热一热，结果把 {lost} 整个打翻在了地上。' },
                           { setFlag: 'incident', value: true },
                         ],
                         else: [

@@ -136,8 +136,8 @@ export const maps = [
         ],
       },
       ...trailRules,
-      // 列车保底：trail_clue_3 会直接排队 underground_train（沿用外出者为 self，他若已不在世则排队失效），
-      // 同时写 train_wait = 3；倒数到 0 的清晨若列车还没来，就不带角色地再排一次。
+      // 列车倒计时：trail_clue_3 写 train_wait = 2、没赶上列车写 3；每天清晨减一，减到 0 的那个清晨排出列车事件。
+      // 用倒计时而不是 queueEvent delay，是因为延时事件会带上找到记号的人，他若在等待中出事，列车就会失约。
       {
         id: 'train_countdown',
         trigger: 'dayStart',
@@ -148,6 +148,37 @@ export const maps = [
         ],
       },
       ...installRules,
+      // 装好的设施各有实际收益，部分完成的自救也有回报
+      {
+        id: 'gen_benefit',
+        when: { flag: 'gen_installed' },
+        modifiers: [{ key: 'stat.sanity.dailyDelta', add: 0.5 }],
+      },
+      {
+        id: 'vent_benefit',
+        when: { flag: 'vent_installed' },
+        modifiers: [{ key: 'status.sick.gainChance', mul: 0.7 }],
+      },
+      {
+        id: 'filter_benefit',
+        trigger: 'dayStart',
+        chance: 0.3,
+        when: { flag: 'filter_installed' },
+        effects: [
+          { item: 'bottled_water', add: 1 },
+          { log: '净水桶滴了一整夜，攒出了一瓶干净的水。' },
+        ],
+      },
+      {
+        id: 'seeds_benefit',
+        trigger: 'dayStart',
+        chance: 0.2,
+        when: { flag: 'seeds_installed' },
+        effects: [
+          { item: 'rice', add: 1 },
+          { log: '种植箱里的稻子熟了一小把，搓出来够煮一顿饭。' },
+        ],
+      },
       ...depletionRules,
     ],
   },

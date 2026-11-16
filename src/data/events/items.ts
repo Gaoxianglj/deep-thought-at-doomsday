@@ -14,9 +14,9 @@ export const itemEvents: EventDef[] = [
   {
     id: 'cold_night',
     title: '寒夜',
-    text: '昨夜气温骤降，墙上结了一层白霜，到现在也没回暖。大家裹着所有能找到的布料，牙齿还是打颤。',
+    text: '昨夜气温骤降，墙上结了一层白霜，到现在也没回暖。屋里能找到的布料全裹在了身上，牙齿还是打颤。',
     tags: ['weather'],
-    when: { day: { gte: 3 } },
+    when: { all: [{ day: { gte: 3 } }, { shelterCount: { gte: 2 } }] },
     cooldown: 6,
     choices: [
       {
@@ -66,7 +66,7 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 2,
-            text: '又冻了一整夜，谁都没睡好，第二天早上每个人都在流鼻涕。',
+            text: '挤着熬了一上午，身子还是暖不过来，一个个都在流鼻涕。',
             effects: [
               { stat: 'health', of: 'all', add: -4 },
               { stat: 'sanity', of: 'all', add: -2 },
@@ -136,7 +136,7 @@ export const itemEvents: EventDef[] = [
         text: '先不管它',
         outcomes: [
           {
-            text: '当天夜里老鼠就摸进了储藏间：{lost}。看样子它们还会再来。',
+            text: '{a} 前脚刚走，老鼠后脚就摸进了储藏间：{lost}。看样子它们还会再来。',
             effects: [
               { loseRandomItem: { tag: 'food', count: 1 } },
               { setFlag: 'incident', value: true },
@@ -209,12 +209,12 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 1,
-            text: '马蜂好像对你们没什么兴趣。可大家还是绕着通风口提心吊胆地走了好几天。',
+            text: '马蜂好像对这屋子没什么兴趣。可往后几天，经过通风口时还是得提心吊胆地绕着走。',
             effects: [{ stat: 'sanity', of: 'all', add: -2 }],
           },
           {
             weight: 2,
-            text: '当天夜里一只马蜂飞了下来，正好蛰在 {a} 的脸上。肿得像个包子。',
+            text: '没过多久，一只马蜂飞了下来，正好蛰在 {a} 的脸上。肿得像个包子。',
             effects: [
               { stat: 'health', of: { role: 'a' }, add: -8 },
               { stat: 'sanity', of: { role: 'a' }, add: -4 },
@@ -241,12 +241,12 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 2,
-            text: '{a} 踩着椅子把裂缝封得严严实实，顺手还用盆接了一盆雨水。',
+            text: '{a} 踩着椅子把裂缝封得严严实实。封好之前漏下来的雨水正好接了一盆，煮开能喝。',
             effects: [{ item: 'bottled_water', add: 1 }],
           },
           {
             weight: 1,
-            text: '裂缝比想象的长，一整卷胶带全用完了，好歹是封住了。接下的雨水够喝一顿。',
+            text: '裂缝比想象的长，一整卷胶带全用完了，好歹是封住了。封好之前漏下来的雨水用盆接住了，煮开够喝一顿。',
             effects: [
               { item: 'duct_tape', add: -1 },
               { item: 'bottled_water', add: 1 },
@@ -279,7 +279,7 @@ export const itemEvents: EventDef[] = [
         text: '把物资全挪开，随它漏',
         outcomes: [
           {
-            text: '大家折腾了一上午，把所有东西搬到了另一头。累得腰都直不起来。',
+            text: '折腾了一上午，才把所有东西搬到了另一头。累得腰都直不起来。',
             effects: [{ stat: 'sanity', of: 'all', add: -3 }],
           },
         ],
@@ -334,7 +334,7 @@ export const itemEvents: EventDef[] = [
         text: '先不管它',
         outcomes: [
           {
-            text: '收音机就这么一直滋啦滋啦地响着，吵得大家一整天都心烦意乱。',
+            text: '收音机就这么一直滋啦滋啦地响着，吵得人一整天都心烦意乱。',
             effects: [{ stat: 'sanity', of: 'all', add: -3 }],
           },
         ],
@@ -355,7 +355,7 @@ export const itemEvents: EventDef[] = [
         text: '调大音量，一起听',
         outcomes: [
           {
-            text: '一首接一首的老歌，有人跟着哼，有人偷偷抹眼泪。当晚大家都睡得很好。',
+            text: '一首接一首的老歌，听着听着就跟着哼了起来，哼着哼着又偷偷抹了把眼泪。心里踏实了不少。',
             effects: [{ stat: 'sanity', of: 'all', add: 5 }],
           },
         ],
@@ -429,7 +429,7 @@ export const itemEvents: EventDef[] = [
           },
           {
             weight: 2,
-            text: '火还没烧旺，直升机就已经飞远了。大家望着天空发了好一会儿呆。',
+            text: '火还没烧旺，直升机就已经飞远了。望着空荡荡的天空，好一会儿都没人挪步。',
             effects: [{ stat: 'sanity', of: 'all', add: -2 }],
           },
         ],
@@ -440,7 +440,7 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 1,
-            text: '有人从舱门探出身子朝你们挥了挥手，扔下一瓶水。',
+            text: '有人从舱门探出身子挥了挥手，扔下一瓶水。',
             effects: [{ item: 'bottled_water', add: 1 }],
           },
           {
@@ -561,7 +561,7 @@ export const itemEvents: EventDef[] = [
         text: '假装没听见',
         outcomes: [
           {
-            text: '呼救声断断续续地响到了傍晚，然后就再也没有了。那天晚上谁都没有说话。',
+            text: '呼救声断断续续地响了一上午，到了下午就再也听不见了。屋里安静得让人难受。',
             effects: [
               { stat: 'sanity', of: 'all', add: -6 },
               { setFlag: 'rule_broken', value: true },
@@ -648,12 +648,12 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 3,
-            text: '一直打到天黑，笑声差点把房顶掀了。',
+            text: '一直打到下午，笑声差点把房顶掀了。',
             effects: [{ stat: 'sanity', of: 'all', add: 6 }],
           },
           {
             weight: 1,
-            text: '打到一半，{a} 和 {b} 为了那张不存在的红桃 Q 该算谁的争得面红耳赤——明明什么也没赌，吵的纯粹是面子。两人谁也不理谁，旁观的人倒是看得很开心。',
+            text: '打到一半，{a} 和 {b} 为了那张不存在的红桃 Q 该算谁的争得面红耳赤——明明什么也没赌，吵的纯粹是面子。两人谁也不理谁，吵完倒是都觉得痛快了一点。',
             effects: [
               { stat: 'sanity', of: { role: 'a' }, add: -3 },
               { stat: 'sanity', of: { role: 'b' }, add: -3 },
@@ -664,10 +664,10 @@ export const itemEvents: EventDef[] = [
       },
       {
         id: 'bet',
-        text: '赌今天的晚饭（输的人少吃半顿）',
+        text: '赌一顿饭（输的人少吃半顿）',
         outcomes: [
           {
-            text: '{a} 赢走了 {b} 的半顿晚饭，吃得心满意足。{b} 饿着肚子发誓再也不赌了。',
+            text: '{a} 赢走了 {b} 的半顿口粮，吃得心满意足。{b} 饿着肚子发誓再也不赌了。',
             effects: [
               { stat: 'satiety', of: { role: 'a' }, add: 10 },
               { stat: 'satiety', of: { role: 'b' }, add: -10 },
@@ -718,7 +718,7 @@ export const itemEvents: EventDef[] = [
         requiresHint: '需要打火机',
         outcomes: [
           {
-            text: '火烧得很旺，大家暖和了一整天。只是地图册烧掉了一大半，基本没法用了。',
+            text: '火烧得很旺，屋里暖和了一整天。只是地图册烧掉了一大半，基本没法用了。',
             effects: [
               { item: 'map_book', add: -1 },
               { stat: 'health', of: 'all', add: 4 },
@@ -820,7 +820,7 @@ export const itemEvents: EventDef[] = [
         requiresHint: '需要门锁',
         outcomes: [
           {
-            text: '当晚他们来试了试门，没撬动，骂骂咧咧地走了。',
+            text: '门锁刚装好，那两人就凑到门口试了试，没撬动，骂骂咧咧地走了。',
           },
         ],
       },
@@ -844,7 +844,7 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 2,
-            text: '对方看了看撬棍，又看了看你们的脸色，识趣地走了。',
+            text: '对方看了看撬棍，又看了看拎撬棍的人的脸色，识趣地走了。',
           },
           {
             weight: 1,
@@ -873,7 +873,7 @@ export const itemEvents: EventDef[] = [
         text: '当没看见',
         outcomes: [
           {
-            text: '傍晚他们走了。但你们总觉得，他们已经记住了这个地方。',
+            text: '到了下午，他们走了。但总觉得，他们已经记住了这个地方。',
             effects: [{ queueEvent: 'break_in', delay: 2 }],
           },
         ],
@@ -1038,7 +1038,7 @@ export const itemEvents: EventDef[] = [
         outcomes: [
           {
             weight: 2,
-            text: '是一只死老鼠。……谢谢？大家笑成了一团。',
+            text: '是一只死老鼠。……谢谢？让人哭笑不得。',
             effects: [{ stat: 'sanity', of: 'all', add: 4 }],
           },
           {
@@ -1159,7 +1159,7 @@ export const itemEvents: EventDef[] = [
         requiresHint: '需要感冒药',
         outcomes: [
           {
-            text: '墙那边传来小女孩带着哭腔的“谢谢”。当天夜里，咳嗽声小了很多。',
+            text: '墙那边传来小女孩带着哭腔的“谢谢”。到了下午，咳嗽声小了很多。',
             effects: [
               { item: 'cold_medicine', add: -1 },
               { stat: 'sanity', of: 'all', add: 5 },
@@ -1170,12 +1170,12 @@ export const itemEvents: EventDef[] = [
       },
       {
         id: 'mask',
-        text: '戴上防毒面具，过去照顾一晚',
+        text: '戴上防毒面具，过去照顾一天',
         requires: { hasItem: 'gas_mask' },
         requiresHint: '需要防毒面具',
         outcomes: [
           {
-            text: '戴着面具守了一夜，换了七八次冷毛巾。天亮时，那位母亲的烧退了。',
+            text: '戴着面具守了大半天，换了七八次冷毛巾。到了下午，那位母亲的烧退了。',
             effects: [
               { stat: 'sanity', of: 'all', add: 3 },
               { queueEvent: 'neighbor_thanks', delay: 2 },
@@ -1202,7 +1202,7 @@ export const itemEvents: EventDef[] = [
         text: '假装没听见',
         outcomes: [
           {
-            text: '咳嗽声又响了两夜，然后就停了。没人敢去想那意味着什么。',
+            text: '咳嗽声断断续续地响了一整天，下午忽然停了。没人敢去想那意味着什么。',
             effects: [{ stat: 'sanity', of: 'all', add: -5 }],
           },
         ],

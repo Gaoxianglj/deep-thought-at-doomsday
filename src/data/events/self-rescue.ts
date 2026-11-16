@@ -9,7 +9,7 @@ export const selfRescueEvents = [
   {
     id: 'install_generator',
     title: '修好发电机',
-    text: '仓库角落里的旧发电机一直是个摆设。现在你们手里有了缺失的核心零件，是时候让它重新转起来了。',
+    text: '仓库角落里的旧发电机一直是个摆设。现在缺失的核心零件终于到手，是时候让它重新转起来了。',
     tags: ['build'],
     weight: 0,
     choices: [
@@ -49,7 +49,7 @@ export const selfRescueEvents = [
   {
     id: 'install_filter',
     title: '装上滤水芯',
-    text: '庇护所里有一台破旧的净水桶，只差一根滤水芯。现在它就躺在你们手里。',
+    text: '庇护所里有一台破旧的净水桶，只差一根滤水芯。现在它就躺在手边。',
     tags: ['build'],
     weight: 0,
     choices: [
@@ -58,7 +58,7 @@ export const selfRescueEvents = [
         text: '装上滤水芯',
         outcomes: [
           {
-            text: '浑浊的水流过滤芯，从另一头流出来的竟然是清亮的。大家围着净水桶欢呼。',
+            text: '浑浊的水流过滤芯，从另一头流出来的竟然是清亮的。守在净水桶旁边，忍不住欢呼了一声。',
             effects: [
               { item: 'water_filter', add: -1 },
               { setFlag: 'filter_installed', value: true },
@@ -89,7 +89,7 @@ export const selfRescueEvents = [
   {
     id: 'install_seeds',
     title: '种下种子',
-    text: '角落里有个空的种植箱，旁边的种子包在向你们招手：“种我，种我。”',
+    text: '角落里有个空的种植箱，旁边的种子包像是在招手：“种我，种我。”',
     tags: ['build'],
     weight: 0,
     choices: [
@@ -98,7 +98,7 @@ export const selfRescueEvents = [
         text: '把种子种下去',
         outcomes: [
           {
-            text: '你们浇了点水，认真地盖上土。几天后，也许会有惊喜。',
+            text: '浇了点水，认真地盖上土。几天后，也许会有惊喜。',
             effects: [
               { item: 'seed_pack', add: -1 },
               { setFlag: 'seeds_installed', value: true },
@@ -115,7 +115,7 @@ export const selfRescueEvents = [
         hideIfLocked: true,
         outcomes: [
           {
-            text: '嘎拉嘛用废水管搭了一套滴灌，还给种植箱装了一盏小灯。大家围着它看了半天，好像能看见种子在发芽。',
+            text: '嘎拉嘛用废水管搭了一套滴灌，还给种植箱装了一盏小灯。围着它看了半天，好像能看见种子在发芽。',
             effects: [
               { item: 'seed_pack', add: -1 },
               { setFlag: 'seeds_installed', value: true },

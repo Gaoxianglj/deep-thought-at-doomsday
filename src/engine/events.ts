@@ -77,6 +77,8 @@ export function startEvent(env: Env, eventId: string, pre: Roles = {}): boolean 
 function drawRandomEvent(env: Env): boolean {
   const { run, content } = env;
   const map = content.maps.get(run.mapId);
+  // 家里没人（全员外出或只剩外出者）时不抽随机事件：那些事件需要有人在家应对
+  if (shelterIds(run).length === 0) return false;
   const p = getModifier(env, 'event.dailyChance', map?.eventDailyChance ?? 0);
   if (!rollChance(run, p)) return false;
   const pool: { id: string; roles: Roles; weight: number }[] = [];

@@ -211,11 +211,11 @@ sim → engine        validation → engine
 清晨 `MORNING_STEPS`（`startDay`，新开局第 1 天也走这里；先清空当天配给计划、`eventRolled = false`）：
 
 1. `weather` 抽取/延续天气（地图有 `weatherTable` 才有；天气变化写 `weatherChange`）
-2. `expeditionReturn` 外出者到期则结算返回（安危 → 战利品 → `expeditionReturn` trigger → specials 入队）
-3. `dayStartRules` 触发 `dayStart`
-4. `diary` 写 `diaryPerDay` 条日记
+2. `diary` 写 `diaryPerDay` 条日记（写的是"昨晚"，所以在外出者回来之前；日记角色只会绑到昨晚在家的人）
+3. `expeditionReturn` 外出者到期则结算返回（安危 → 战利品 → `expeditionReturn` trigger → specials 入队）
+4. `dayStartRules` 触发 `dayStart`
 5. `trimLog` 丢掉超过 `logKeepDays` 的日志
-6. （步骤之后）`checkDeaths` →（若此刻已没有任何活人：不再弹事件，直接判结局，未命中其他结局则走兜底）→ `nextEvent`：先处理已到期的队列事件（`day <= 今天`，全部依次进行，且今天不再随机抽）；否则按 `event.dailyChance` 抽 1 个随机事件；都没有则进入 `plan` 阶段并检查结局
+6. （步骤之后）`checkDeaths` →（若此刻已没有任何活人：不再弹事件，直接判结局，未命中其他结局则走兜底）→ `nextEvent`：先处理已到期的队列事件（`day <= 今天`，全部依次进行，且今天不再随机抽）；否则（且至少有一人在庇护所时）按 `event.dailyChance` 抽 1 个随机事件；都没有则进入 `plan` 阶段并检查结局
 
 入夜 `NIGHT_STEPS`（玩家点"结束这一天"，仅 `plan` 阶段可用）：
 

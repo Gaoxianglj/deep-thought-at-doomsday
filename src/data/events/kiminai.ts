@@ -4,7 +4,7 @@ export const kiminaiEvents = [
   {
     id: 'knock',
     title: '敲门声',
-    text: '咚、咚、咚。深夜，庇护所的门被人轻轻敲响。门外传来一个懒洋洋的声音：“请问……这里收留路过的吗？”',
+    text: '咚、咚、咚。天刚蒙蒙亮，庇护所的门被人轻轻敲响。门外传来一个懒洋洋的声音：“请问……这里收留路过的吗？”',
     tags: ['visitor'],
     when: {
       all: [{ not: { inParty: 'kiminai' } }, { partyAlive: { lte: 3 } }, { day: { gte: 3 } }],
@@ -45,7 +45,7 @@ export const kiminaiEvents = [
         text: '欢迎加入',
         outcomes: [
           {
-            text: '{k} 很快就和大家打成一片，已经开始给大家科普屋里每样东西的保质期了。',
+            text: '{k} 很快就和屋里的人打成一片，已经开始挨个科普屋里每样东西的保质期了。',
             effects: [{ stat: 'sanity', of: 'all', add: 5 }],
           },
         ],

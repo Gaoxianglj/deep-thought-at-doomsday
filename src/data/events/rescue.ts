@@ -7,7 +7,8 @@ import type { Effect, EventDef } from '../../engine/schema';
  */
 
 /** 车队线参数（docs/DESIGN.md 12.6） */
-const CARAVAN_BATCH = 1; // 每次上交的份数
+const CARAVAN_BATCH = 1; // 单次上交的份数
+const CARAVAN_BIG_BATCH = 3; // "一次搬三份"选项（只在还差至少这么多时可选，不会多交）
 const CARAVAN_GAP = 2; // 来访间隔（天）
 const CARAVAN_VISITS = 6; // 最多来访次数（含谈妥后的第一次）
 const CARAVAN_WATER = [5, 6, 7]; // 本局随机需要的水
@@ -15,11 +16,60 @@ const CARAVAN_FOOD = [4, 5, 6]; // 本局随机需要的食物
 const CN = ['零', '一', '两', '三', '四', '五', '六', '七', '八', '九', '十'];
 
 /** 上交 CARAVAN_BATCH 份某类物资：扣库存、扣 flag，扣成负数就拉回 0 */
-const handIn = (tag: 'water' | 'food', flag: string): Effect[] => [
-  { loseRandomItem: { tag, count: CARAVAN_BATCH, pick: 'cheapest' } },
-  { addFlag: flag, add: -CARAVAN_BATCH },
+const handIn = (tag: 'water' | 'food', flag: string, n = CARAVAN_BATCH): Effect[] => [
+  { loseRandomItem: { tag, count: n, pick: 'cheapest' } },
+  { addFlag: flag, add: -n },
   { if: { flag, lt: 0 }, then: [{ setFlag: flag, value: 0 }] },
 ];
+
+/** 车队来访的上交选项：每类物资"搬 1 份"与"搬 3 份"各一个。交齐两类即触发结局，否则回到同一事件允许连交。 */
+const CARAVAN_KINDS = [
+  { tag: 'water', flag: 'caravan_water_left', other: 'caravan_food_left', name: '水', unit: '水' },
+  {
+    tag: 'food',
+    flag: 'caravan_food_left',
+    other: 'caravan_water_left',
+    name: '吃的',
+    unit: '食物',
+  },
+] as const;
+const giveChoices = CARAVAN_KINDS.flatMap(({ tag, flag, other, name, unit }) =>
+  [CARAVAN_BATCH, CARAVAN_BIG_BATCH].map((n) => {
+    const done = {
+      all: [
+        { flag, lte: n },
+        { flag: other, lte: 0 },
+      ],
+    };
+    return {
+      id: n === CARAVAN_BATCH ? `give_${tag}` : `give_${tag}_${n}`,
+      text: `搬 ${n} 份${unit}上车（先交最便宜的）`,
+      requires: {
+        all: [
+          { hasTag: tag, count: n },
+          { flag, gte: n === CARAVAN_BATCH ? 1 : n },
+        ],
+      },
+      requiresHint:
+        n === CARAVAN_BATCH
+          ? `需要库存里有 ${n} 份${unit}，且${name}还没交齐`
+          : `需要库存里有 ${n} 份${unit}，且${name}还差至少 ${n} 份`,
+      outcomes: [
+        {
+          when: done,
+          text: `最后一批${name}也搬上了车。领队合上本子，拍了拍车厢：“齐了，上车！”`,
+          effects: [...handIn(tag, flag, n), { ending: 'caravan' }],
+        },
+        {
+          when: { not: done },
+          text: `${name}搬上了车，领队在本子上划了一道：“还差水 {flag:caravan_water_left} 份、吃的 {flag:caravan_food_left} 份。”`,
+          effects: handIn(tag, flag, n),
+          next: 'caravan_visit',
+        },
+      ],
+    };
+  }),
+);
 
 const TRAIL_LOCATIONS = [
   'substation',
@@ -59,7 +109,7 @@ export const rescueEvents = [
           },
           {
             weight: 1,
-            text: '你们喊了半天，对面只有循环播放的录音。信号最终淹没在沙沙声里。至少你们记住了他们要的东西：{flagItem:evac_item}。',
+            text: '对着麦克风喊了半天，对面只有循环播放的录音。信号最终淹没在沙沙声里。至少记住了他们要的东西：{flagItem:evac_item}。',
             effects: [
               { setFlag: 'evac_known', value: true },
               { stat: 'sanity', of: 'all', add: -3 },
@@ -72,7 +122,7 @@ export const rescueEvents = [
         text: '只是默默记下',
         outcomes: [
           {
-            text: '你们把广播内容抄在了墙上：撤离区、接应、{flagItem:evac_item}。也许下次再听到时，就有勇气回应了。',
+            text: '广播内容被抄在了墙上：撤离区、接应、{flagItem:evac_item}。也许下次再听到时，就有勇气回应了。',
             effects: [{ setFlag: 'evac_known', value: true }],
           },
         ],
@@ -129,7 +179,7 @@ export const rescueEvents = [
         text: '只能看着他们离开',
         outcomes: [
           {
-            text: '装甲车调了个头，消失在烟尘里。你们站在街口很久都没说话。也许还会有下一次广播。',
+            text: '装甲车调了个头，消失在烟尘里。街口站着的人望了很久，一句话也没说。也许还会有下一次广播。',
             effects: [
               { setFlag: 'evac_contact', value: false },
               { stat: 'sanity', of: 'all', add: -6 },
@@ -183,81 +233,10 @@ export const rescueEvents = [
   {
     id: 'caravan_visit',
     title: '车队来了',
-    text: '卡车停在楼下，领队靠在车门上翻着小本子：“还差水 {flag:caravan_water_left} 份、吃的 {flag:caravan_food_left} 份。今天能交多少？”',
+    text: '卡车停在楼下，领队靠在车门上翻着小本子：“还差水 {flag:caravan_water_left} 份、吃的 {flag:caravan_food_left} 份。今天能交多少？一份一份地搬也行，一次搬三份也行。”',
     weight: 0,
     choices: [
-      {
-        id: 'give_water',
-        text: `搬 ${CARAVAN_BATCH} 份水上车`,
-        requires: {
-          all: [
-            { hasTag: 'water', count: CARAVAN_BATCH },
-            { flag: 'caravan_water_left', gte: 1 },
-          ],
-        },
-        requiresHint: `需要库存里有 ${CARAVAN_BATCH} 份水，且水还没交齐`,
-        outcomes: [
-          {
-            when: {
-              all: [
-                { flag: 'caravan_water_left', lte: CARAVAN_BATCH },
-                { flag: 'caravan_food_left', lte: 0 },
-              ],
-            },
-            text: '最后一份水也搬上了车。领队合上本子，拍了拍车厢：“齐了，上车！”',
-            effects: [...handIn('water', 'caravan_water_left'), { ending: 'caravan' }],
-          },
-          {
-            when: {
-              not: {
-                all: [
-                  { flag: 'caravan_water_left', lte: CARAVAN_BATCH },
-                  { flag: 'caravan_food_left', lte: 0 },
-                ],
-              },
-            },
-            text: '水搬上了车，领队在本子上划了一道：“还差水 {flag:caravan_water_left} 份、吃的 {flag:caravan_food_left} 份。”',
-            effects: handIn('water', 'caravan_water_left'),
-            next: 'caravan_visit',
-          },
-        ],
-      },
-      {
-        id: 'give_food',
-        text: `搬 ${CARAVAN_BATCH} 份食物上车`,
-        requires: {
-          all: [
-            { hasTag: 'food', count: CARAVAN_BATCH },
-            { flag: 'caravan_food_left', gte: 1 },
-          ],
-        },
-        requiresHint: `需要 ${CARAVAN_BATCH} 份食物（食物已交齐则不用再交）`,
-        outcomes: [
-          {
-            when: {
-              all: [
-                { flag: 'caravan_food_left', lte: CARAVAN_BATCH },
-                { flag: 'caravan_water_left', lte: 0 },
-              ],
-            },
-            text: '最后一份吃的也搬上了车。领队合上本子，拍了拍车厢：“齐了，上车！”',
-            effects: [...handIn('food', 'caravan_food_left'), { ending: 'caravan' }],
-          },
-          {
-            when: {
-              not: {
-                all: [
-                  { flag: 'caravan_food_left', lte: CARAVAN_BATCH },
-                  { flag: 'caravan_water_left', lte: 0 },
-                ],
-              },
-            },
-            text: '吃的搬上了车，领队在本子上划了一道：“还差水 {flag:caravan_water_left} 份、吃的 {flag:caravan_food_left} 份。”',
-            effects: handIn('food', 'caravan_food_left'),
-            next: 'caravan_visit',
-          },
-        ],
-      },
+      ...giveChoices,
       {
         id: 'enough',
         text: '这次就到这儿',
@@ -372,11 +351,11 @@ export const rescueEvents = [
         text: '读那行字',
         outcomes: [
           {
-            text: '“两天后的清晨，离你们最近的地铁口。列车只停一会儿。”{self} 把时刻表揣进怀里，一路小跑回了家。不用再出门找了——两天后的清晨，大家在家里等着，到时候一起去门口的地铁口就行。',
+            text: '“列车每隔几天在各个地铁口停一次，每次只停一会儿。”{self} 对着时刻表数了数：离家最近的那个站，下一班正好是后天清晨。{self} 把时刻表揣进怀里，一路小跑回了家。不用再出门找了——后天清晨守在家门口的地铁口就行，备忘里记着倒计时；万一没赶上，三天后还会再来一班。',
             effects: [
               { setFlag: 'trail_step', value: 4 },
-              { setFlag: 'train_wait', value: 3 },
-              { queueEvent: 'underground_train', delay: 2 },
+              // 两天后的清晨由地图规则 train_countdown 排队（不带角色，找到记号的人出事也不会让列车失约）
+              { setFlag: 'train_wait', value: 2 },
               { stat: 'sanity', of: 'all', add: 6 },
             ],
           },
@@ -387,7 +366,7 @@ export const rescueEvents = [
   {
     id: 'underground_train',
     title: '地下列车',
-    text: '天还没亮，你们守在最近的地铁口。铁栅栏后面亮起了一盏昏黄的灯，一列只有两节车厢的列车慢慢滑进站台，没有停稳，像是在等什么信号。',
+    text: '天还没亮，庇护所里的人就守在了最近的地铁口。铁栅栏后面亮起了一盏昏黄的灯，一列只有两节车厢的列车慢慢滑进站台，没有停稳，像是在等什么信号。',
     weight: 0,
     choices: [
       {
@@ -429,7 +408,7 @@ export const rescueEvents = [
         outcomes: [
           {
             weight: 1,
-            text: '你们一边跑一边喊，嗓子都喊哑了。列车终于停下，有人从车窗里伸出手把你们拉了上去。',
+            text: '一边跑一边喊，嗓子都喊哑了。列车终于停下，车窗里伸出几只手，把人拉了上去。',
             effects: [{ setFlag: 'train_wait', value: 0 }, { ending: 'subway_rescue' }],
           },
           {

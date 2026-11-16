@@ -3,14 +3,50 @@ import type { NoteDef } from '../engine/schema';
 /** 日记本"备忘"页（见 docs/DESIGN.md 12.1）：各条结局线的进度与本局随机的目标。 */
 
 const FACILITIES = [
-  ['gen', 'gen_installed', '发电机', '发电机零件', '变电站', '手电筒', '配电室'],
-  ['filter', 'filter_installed', '净水桶', '滤水芯', '自来水厂', '防毒面具', '过滤车间'],
-  ['seeds', 'seeds_installed', '种植箱', '种子包', '植物园温室', '杀虫喷雾', '育苗室'],
-  ['vent', 'vent_installed', '通风机', '通风滤网', '地铁站', '绳索', '通风竖井'],
+  [
+    'gen',
+    'gen_installed',
+    '发电机',
+    '发电机零件',
+    '变电站',
+    '手电筒',
+    '配电室',
+    '屋里有了灯，理智下降变慢',
+  ],
+  [
+    'filter',
+    'filter_installed',
+    '净水桶',
+    '滤水芯',
+    '自来水厂',
+    '防毒面具',
+    '过滤车间',
+    '隔三岔五能攒出一瓶干净的水',
+  ],
+  [
+    'seeds',
+    'seeds_installed',
+    '种植箱',
+    '种子包',
+    '植物园温室',
+    '杀虫喷雾',
+    '育苗室',
+    '偶尔能收一把米',
+  ],
+  [
+    'vent',
+    'vent_installed',
+    '通风机',
+    '通风滤网',
+    '地铁站',
+    '绳索',
+    '通风竖井',
+    '空气好了，不容易生病',
+  ],
 ] as const;
 
 const facilityNotes: NoteDef[] = FACILITIES.flatMap(
-  ([key, flag, name, part, where, tool, room], i) => [
+  ([key, flag, name, part, where, tool, room, benefit], i) => [
     {
       id: `self_rescue_${key}_todo`,
       text: `${name}：还缺${part}。去${where}搜刮时偶尔能翻到；带上${tool}去，还有机会找到${room}，在那里一定能拿到。`,
@@ -19,7 +55,7 @@ const facilityNotes: NoteDef[] = FACILITIES.flatMap(
     },
     {
       id: `self_rescue_${key}_done`,
-      text: `${name}：已经装好了。`,
+      text: `${name}：已经装好了——${benefit}。`,
       when: { flag },
       order: 11 + i,
     },
@@ -74,6 +110,12 @@ export const notes = [
     text: '地下列车：最后一个记号在 {flagLocation:trail_3}。派人外出去那里一趟就能找到。',
     when: { flag: 'trail_step', eq: 3 },
     order: 40,
+  },
+  {
+    id: 'train_countdown',
+    text: '地下列车：列车将在 {flag:train_wait} 天后的清晨到站。不用出门，在家等着就行。',
+    when: { flag: 'train_wait', gte: 1 },
+    order: 39,
   },
   {
     id: 'trail_done',

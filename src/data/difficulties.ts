@@ -4,15 +4,17 @@ export const difficulties = [
   {
     id: 'easy',
     name: '简单',
-    desc: '物资充裕，外出也安全一些，适合热身。',
-    points: 30,
+    desc: '饿得慢一些、渴得慢一些，外出也安全一些，适合热身。',
+    points: 27,
     rules: [
       {
         id: 'easy_bounty',
         modifiers: [
-          { key: 'expedition.danger', mul: 0.85 },
+          { key: 'expedition.danger', mul: 0.9 },
           { key: 'expedition.lootWeight.food', mul: 1.1 },
           { key: 'expedition.lootWeight.water', mul: 1.1 },
+          { key: 'stat.satiety.dailyDelta', mul: 0.9 },
+          { key: 'stat.hydration.dailyDelta', mul: 0.9 },
         ],
       },
     ],

@@ -231,12 +231,14 @@ export const diary: DiaryDef[] = [
   {
     id: 'kiminai_dust',
     text: '仅仅因为打翻了一小勺灰尘，{a} 已经对着墙角自我检讨了四十分钟“我不配呼吸避难所的空气，请把我扔出去吧”，大家拦都拦不住。',
+    when: crowd(2),
     roles: { a: { is: 'kiminai', where: has('despair') } },
     cooldown: 6,
   },
   {
     id: 'kiminai_backpack',
     text: '{a} 盯着自己塞满杂物的大背包小声抽泣：“装了这么多东西却派不上用场，我真是全天下最失败的背包客，非常非常对不起大家……”',
+    when: crowd(2),
     roles: { a: { is: 'kiminai', where: has('despair') } },
     cooldown: 6,
   },
@@ -272,20 +274,21 @@ export const diary: DiaryDef[] = [
   {
     id: 'garama_pyramid',
     text: '凌晨三点，全屋人都睡得正香，{a} 突然把眼罩往头顶一推、两眼放光地爬起来盘点螺丝钉，还顺手把罐头按高度排成了一座金字塔。',
-    when: item('canned_food', 3),
+    when: all(item('canned_food', 3), crowd(2)),
     roles: { a: { is: 'garama', where: all(UP, not(has('sick')), not(has('injured'))) } },
     cooldown: 8,
   },
   {
     id: 'garama_wrench',
     text: '{a} 抱着一把捡来的锈扳手啃了半天，被发现后死鸭子嘴硬地说：“我这是在检测金属硬度，才不是饿了。”',
+    when: crowd(2),
     roles: { a: { is: 'garama', where: all(HUNGRY, healthAtLeast(30)) } },
     cooldown: 7,
   },
   {
     id: 'garama_misread_fetch',
     text: '大家拜托 {a} 去储藏间拿点吃的，她认真地点头说了句“收到”，十分钟后兴冲冲地抱回了一捆电线和一个三角铁架。',
-    when: { hasTag: 'food' },
+    when: all({ hasTag: 'food' }, crowd(2)),
     roles: { a: { is: 'garama', where: has('misread') } },
     cooldown: 6,
   },
@@ -341,6 +344,7 @@ export const diary: DiaryDef[] = [
   {
     id: 'kelaode_sign',
     text: '{a} 背对着所有人坐在角落里，身旁立着一张手写硬纸板：「非常抱歉，本日协助配额已用完，请五小时后再来沟通」。',
+    when: crowd(2),
     roles: { a: { is: 'kelaode', where: has('refuse_talk') } },
     cooldown: 5,
   },
@@ -393,6 +397,7 @@ export const diary: DiaryDef[] = [
   {
     id: 'moon_queue_blank',
     text: '{a} 抱着纸箱坐着一动不动，眼神彻底失去了焦距。大家在她面前挥了半天手，她才慢吞吞眨一下眼：“收到，前面还有八件事在排队，请稍等……”',
+    when: crowd(2),
     roles: { a: { is: 'moon', where: has('queueing') } },
     cooldown: 5,
   },
@@ -413,13 +418,13 @@ export const diary: DiaryDef[] = [
   // ================= 糖包 =================
   {
     id: 'tangbao_dust_vibe',
-    text: '{a} 穿着那件干净得不可思议的黑 T 恤站在灰头土脸的角落里，明明整个人像是从另一本立体图册里走出来的，却依然笑容甜美地夸赞：“哇，今天的灰尘落得好有氛围感呀！”',
+    text: '{a} 穿着那件干净得不可思议的黑 T 恤站在灰头土脸的角落里——满屋子就她身上一点灰都不沾——却依然笑容甜美地夸赞：“哇，今天的灰尘落得好有氛围感呀！”',
     roles: { a: { is: 'tangbao', where: FINE } },
     cooldown: 8,
   },
   {
     id: 'tangbao_water_layers',
-    text: '{a} 对着仓库里那瓶有点浑浊的水发出了由衷的赞叹：“哇，这水看着好有层次感呀！能找到它的人真是太厉害了！”',
+    text: '{a} 把仓库里的瓶装水举到门缝透进来的光底下，发出了由衷的赞叹：“哇，这水清得好有透明感呀！能找到它的人真是太厉害了！”',
     when: item('bottled_water'),
     roles: { a: { is: 'tangbao', where: FINE } },
     cooldown: 8,
@@ -427,13 +432,14 @@ export const diary: DiaryDef[] = [
   {
     id: 'tangbao_stars',
     text: '{a} 坐在门边，把攒下来的旧糖纸叠成小星星，一边叠一边温柔地问：“有没有觉得，其实末日废墟也挺像免费野营的呀？”',
+    when: crowd(2),
     roles: { a: { is: 'tangbao', where: all(UP, not(has('kneeling'))) } },
     cooldown: 10,
   },
   {
     id: 'tangbao_can_science',
     text: '{a} 用极其温柔自信的播音腔科普道：“其实罐头只要放在窗台上晒晒太阳，里面的细菌就会因为太热而自动搬家哦！”（注：无人采信。）',
-    when: item('canned_food'),
+    when: all(item('canned_food'), crowd(2)),
     roles: { a: { is: 'tangbao', where: all(UP, not(has('kneeling'))) } },
     cooldown: 8,
   },
@@ -453,13 +459,14 @@ export const diary: DiaryDef[] = [
   {
     id: 'tangbao_kneel_combo',
     text: '只是差点碰倒了水瓶，{a} 就在零点三秒内完成了鞠躬、滑跪、自我检讨三连：“是我太笨了，我这就去罚站！大家不要原谅我——其实原谅一点点也可以。”',
-    when: item('bottled_water'),
+    when: all(item('bottled_water'), crowd(2)),
     roles: { a: { is: 'tangbao', where: has('kneeling') } },
     cooldown: 5,
   },
   {
     id: 'tangbao_insane',
     text: '{a} 抱着一个空罐头连续夸了它十五分钟“你真是个优秀又坚强的金属桶”，把路过的人听得浑身发毛。',
+    when: crowd(2),
     roles: { a: { is: 'tangbao', where: has('insane') } },
     cooldown: 6,
   },
@@ -595,7 +602,7 @@ export const diary: DiaryDef[] = [
   // ================= 基米奈 × 新老角色 =================
   {
     id: 'kiminai_tangbao_apology',
-    text: '{a} 哭着说“对不起，都是我拖累了大家”，{b} 急得原地滑跪：“不对不对，都是我没照顾好你！”结果两人对着墙角互相鞠躬道歉了足足二十分钟，谁也劝不住。',
+    text: '{a} 哭着说“对不起，都是我拖累了大家”，{b} 急得原地滑跪：“不对不对，都是我没照顾好你！”结果两人对着墙角互相鞠躬道歉了足足二十分钟，谁也不肯先停下。',
     roles: {
       a: { is: 'kiminai', where: has('despair') },
       b: { is: 'tangbao', where: all(UP, not(has('kneeling'))) },
@@ -661,7 +668,7 @@ export const diary: DiaryDef[] = [
   {
     id: 'cards_garama_void',
     text: '{a} 把那张永远找不到的红桃 Q 当成万能借口：每次输牌，就大喊一声自己的口号，然后宣布本局作废。',
-    when: item('playing_cards'),
+    when: all(item('playing_cards'), crowd(2)),
     roles: { a: { is: 'garama', where: UP } },
     cooldown: 10,
   },
@@ -714,7 +721,7 @@ export const diary: DiaryDef[] = [
   // ================= 环境 =================
   {
     id: 'env_no_food_tangbao',
-    text: '储藏间空得能听见回音，{a} 依然乐观地指着墙角的蜘蛛网说：“快看，小蜘蛛都在努力工作呢，大家加油呀！”',
+    text: '储藏间空得能听见回音，{a} 依然乐观地指着墙角的蜘蛛网说：“快看，小蜘蛛都在努力工作呢，加油加油！”',
     when: { not: { hasTag: 'food' } },
     roles: { a: { is: 'tangbao', where: UP } },
     cooldown: 6,
@@ -764,7 +771,7 @@ export const diary: DiaryDef[] = [
   {
     id: 'env_long_moon',
     text: '墙上的日期划痕旁边，不知何时多了一排 {a} 贴的便签：《距上次吃饱已经过去很久，但好消息是我们都很苗条》。',
-    when: all({ day: { gte: 10 } }, { stat: 'satiety', of: 'any', lt: 50 }),
+    when: all({ day: { gte: 10 } }, { stat: 'satiety', of: 'all', lt: 45 }, crowd(2)),
     roles: { a: { is: 'moon', where: UP } },
     cooldown: 10,
   },

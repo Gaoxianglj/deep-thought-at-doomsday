@@ -83,9 +83,10 @@ function stepTrimLog(env: Env): void {
 
 export const MORNING_STEPS: DayStep[] = [
   { name: 'weather', run: stepWeather },
+  // 日记写的是"昨晚"：在外出者回来之前写，否则会把昨晚还在外面的人写成在家
+  { name: 'diary', run: writeDiary },
   { name: 'expeditionReturn', run: resolveReturn },
   { name: 'dayStartRules', run: (env) => fireTrigger(env, 'dayStart') },
-  { name: 'diary', run: writeDiary },
   { name: 'trimLog', run: stepTrimLog },
 ];
 

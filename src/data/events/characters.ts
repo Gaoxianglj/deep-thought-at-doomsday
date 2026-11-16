@@ -11,7 +11,7 @@ export const characterEvents: EventDef[] = [
   {
     id: 'garama_knock',
     title: '夜半门栓响',
-    text: '半夜，防盗门外传来“叮当”的金属碰撞声，还夹着一声刻意压低、却依然很清脆的喊叫：“嘎拉嘛！”你们抄起手边的东西摸到门边，从猫眼往外看——一个顶着毛茸茸黑狐耳、拖着白尖大尾巴的女孩正蹲在门前，额头上架着一只睡眠眼罩，正拿着一把锈扳手帮你们拧快要松脱的门铰链。',
+    text: '天还没亮，防盗门外就传来“叮当”的金属碰撞声，还夹着一声刻意压低、却依然很清脆的喊叫：“嘎拉嘛！”你们抄起手边的东西摸到门边，从猫眼往外看——一个顶着毛茸茸黑狐耳、拖着白尖大尾巴的女孩正蹲在门前，额头上架着一只睡眠眼罩，正拿着一把锈扳手帮你们拧快要松脱的门铰链。',
     tags: ['visitor'],
     when: {
       all: [{ not: { inParty: 'garama' } }, { partyAlive: { lte: 3 } }, { day: { gte: 3 } }],
@@ -50,7 +50,7 @@ export const characterEvents: EventDef[] = [
         text: '保持警惕，装作屋里没人',
         outcomes: [
           {
-            text: '拧螺丝的声音停了。门外嘟囔了一句“真没礼貌……”，然后是哒哒远去的脚步声。天亮后大家发现，门莫名比昨天好关了一点。也许以后还会遇到她。',
+            text: '拧螺丝的声音停了。门外嘟囔了一句“真没礼貌……”，然后是哒哒远去的脚步声。等天亮了再看，门莫名比昨天好关了一点。也许以后还会遇到她。',
             effects: [{ stat: 'sanity', of: 'all', add: 2 }],
           },
         ],
@@ -102,7 +102,7 @@ export const characterEvents: EventDef[] = [
         text: '“谢谢，不用了”',
         outcomes: [
           {
-            text: '她炸毛地往后一跳，喊了声“嘎拉嘛！”就消失在夜色里，走之前还顺手把门栓反拧了两圈。也许以后还会遇到她。',
+            text: '她炸毛地往后一跳，喊了声“嘎拉嘛！”就消失在晨雾里，走之前还顺手把门栓反拧了两圈。也许以后还会遇到她。',
           },
         ],
       },
@@ -111,7 +111,7 @@ export const characterEvents: EventDef[] = [
   {
     id: 'garama_welcome',
     title: '夜班开工',
-    text: '{g} 把额头上的眼罩往上推了推，抱着黑皮笔记本绕庇护所走了一圈，在每扇门、每个柜子上都敲了敲：“结构凑合。今晚我值班，你们睡吧。”',
+    text: '{g} 把额头上的眼罩往上推了推，抱着黑皮笔记本绕庇护所走了一圈，在每扇门、每个柜子上都敲了敲：“结构凑合。往后夜班归我，你们安心睡。”',
     weight: 0,
     roles: { g: { is: 'garama' } },
     choices: [
@@ -203,7 +203,7 @@ export const characterEvents: EventDef[] = [
         text: '在公约上签字',
         outcomes: [
           {
-            text: '{c} 满意地收起公约，在小本本上给每个人都画了一个小太阳。',
+            text: '{c} 满意地收起公约，在小本本的第一页端端正正地画了一排小太阳。',
             effects: [{ stat: 'sanity', of: 'all', add: 3 }],
           },
         ],
@@ -215,7 +215,7 @@ export const characterEvents: EventDef[] = [
   {
     id: 'moon_flyers',
     title: '循着传单找来的人',
-    text: '走廊里传来沉重的纸箱拖拽声，紧接着是一阵急促的敲门声：“打扰了！请问这里是……还有人住的那间屋子吗？”门外是一个银白长发、穿着星空长裙的女孩，正费力地拖着半人高的旧书箱，眼底挂着浓重的黑眼圈，手里捏着一张你们都不记得什么时候掉在路上的便利贴：“我根据这几天捡到的传单、超市小票和电台杂音推算出这里安全系数最高。能借块地板，让我把这箱资料摊开吗？”',
+    text: '走廊里传来沉重的纸箱拖拽声，紧接着是一阵急促的敲门声：“打扰了！请问这里是……还有人住的那间屋子吗？”门外是一个银白长发、穿着星空长裙的女孩，正费力地拖着半人高的旧书箱，眼底挂着浓重的黑眼圈，手里攥着一沓皱巴巴的传单和超市小票：“我根据一路上捡来的传单、小票和过期报纸推算出，这一片就数这里安全系数最高。能借块地板，让我把这箱资料摊开吗？”',
     tags: ['visitor'],
     when: {
       all: [
@@ -232,7 +232,7 @@ export const characterEvents: EventDef[] = [
         text: '挪出一块角落让她住下',
         outcomes: [
           {
-            text: '她如释重负地把纸箱往墙角一墩，当场掏出炭笔，在墙上画起了《避难所周边废墟资源分布草图》。大家看着那张图，莫名有点振奋。',
+            text: '她如释重负地把纸箱往墙角一墩，当场掏出炭笔，在墙上画起了《避难所周边废墟资源分布草图》。那张图看得人莫名有点振奋。',
             effects: [
               { joinParty: 'moon' },
               { unlock: 'moon' },
@@ -309,7 +309,7 @@ export const characterEvents: EventDef[] = [
         requiresHint: '没有瓶装水',
         outcomes: [
           {
-            text: '门外是一个圆润光滑、质感和整个废墟都不在一个图层的女孩。她开心得差点原地转圈，用连续十句不重样的夸夸把大家夸得不好意思起来。',
+            text: '门外是一个圆润光滑、质感和整个废墟都不在一个图层的女孩。她开心得差点原地转圈，用连续十句不重样的夸夸把屋里的人夸得不好意思起来。',
             effects: [
               { item: 'bottled_water', add: -1 },
               { joinParty: 'tangbao' },
@@ -354,7 +354,7 @@ export const characterEvents: EventDef[] = [
         text: '“……进来吧，水是没有多的”',
         outcomes: [
           {
-            text: '她一进门就开始夸门框擦得很有品位，嗓子有点哑，但笑得格外灿烂。大家哭笑不得。',
+            text: '她一进门就开始夸门框擦得很有品位，嗓子有点哑，但笑得格外灿烂。让人哭笑不得。',
             effects: [
               { joinParty: 'tangbao' },
               { unlock: 'tangbao' },
@@ -379,7 +379,7 @@ export const characterEvents: EventDef[] = [
   {
     id: 'tangbao_welcome',
     title: '全糖驾到',
-    text: '{t} 在屋里转了一圈，把每个人都夸了一遍：“哇，这个纸箱堆得好有层次感！这个角落的灰好有年代感！大家真的太厉害了！”',
+    text: '{t} 在屋里转了一圈，见什么夸什么：“哇，这个纸箱堆得好有层次感！这个角落的灰好有年代感！住在这里的人真的太厉害了！”',
     weight: 0,
     roles: { t: { is: 'tangbao' } },
     choices: [
@@ -403,6 +403,7 @@ export const characterEvents: EventDef[] = [
     text: '清晨一睁眼，庇护所四面墙上贴满了密密麻麻的小纸条——水桶上贴着《节约用水人人有责》，门把手上贴着《出门请喊口号》，连睡着的人背上都被贴了一张《长期躺平易引发肌肉退化》。{self} 正踩在纸箱上，手里拿着最后一张《月氏情报站欢迎投喂》，表情严肃得像在布展。',
     tags: ['character'],
     cooldown: 7,
+    when: { shelterCount: { gte: 2 } },
     roles: {
       self: {
         is: 'moon',
@@ -477,6 +478,7 @@ export const characterEvents: EventDef[] = [
     text: '{self} 戴上一双不知从哪找来的白手套，面无表情地把小本本摊在桌上：“各位，经过本小姐连日观察，庇护所的杂物堆放角度与地面灰尘指数已经严重偏离安全基线。现在开始突击卫生检查。”',
     tags: ['character'],
     cooldown: 7,
+    when: { shelterCount: { gte: 2 } },
     roles: {
       self: {
         is: 'kelaode',
@@ -550,9 +552,10 @@ export const characterEvents: EventDef[] = [
   {
     id: 'garama_2am',
     title: '凌晨两点的战吼',
-    text: '半夜，所有人都睡得迷迷糊糊，黑漆漆的储藏间里突然响起一声中气十足的战吼：“嘎拉嘛——！”紧接着是“咣当”一声巨响，好像什么金属东西翻倒了。',
+    text: '凌晨两点，所有人都还睡得迷迷糊糊，黑漆漆的储藏间里突然响起一声中气十足的战吼：“嘎拉嘛——！”紧接着是“咣当”一声巨响，好像什么金属东西翻倒了。',
     tags: ['character'],
     cooldown: 6,
+    when: { shelterCount: { gte: 2 } },
     roles: { self: { is: 'garama' } },
     choices: [
       {
@@ -603,7 +606,7 @@ export const characterEvents: EventDef[] = [
           },
           {
             when: { not: { all: [{ hasStatus: 'misread', of: 'self' }, { hasTag: 'tool' }] } },
-            text: '后半夜安静了下来。天亮后什么也没少，只是那扇吱呀作响的门再也不响了。',
+            text: '之后就安静了下来。天亮后什么也没少，只是那扇吱呀作响的门再也不响了。',
             effects: [{ stat: 'sanity', of: 'all', add: 2 }],
           },
         ],
@@ -616,7 +619,9 @@ export const characterEvents: EventDef[] = [
     text: '一早，{self} 兴致勃勃地把大家叫到一起，从仓库里拿出一块压缩饼干和一瓶水，准备分享她昨晚想出来的“让食物变多小魔法”。她的眼神无比清澈真诚，声音甜得像刚出锅的糖水。',
     tags: ['character'],
     cooldown: 6,
-    when: { all: [{ hasItem: 'biscuit' }, { hasItem: 'bottled_water' }] },
+    when: {
+      all: [{ hasItem: 'biscuit' }, { hasItem: 'bottled_water' }, { shelterCount: { gte: 2 } }],
+    },
     roles: { self: { is: 'tangbao', where: { not: { hasStatus: 'insane', of: 'self' } } } },
     choices: [
       {
@@ -680,7 +685,7 @@ export const characterEvents: EventDef[] = [
     text: '{self} 叉着腰站在罐头堆前，指尖“噗”地冒出一撮小火苗：“本大姐今天心情好，给你们开个烧烤摊！谁要热乎的？”',
     tags: ['character'],
     cooldown: 7,
-    when: { hasItem: 'canned_food' },
+    when: { all: [{ hasItem: 'canned_food' }, { shelterCount: { gte: 2 } }] },
     roles: {
       self: {
         is: 'dragon_girl',
@@ -714,7 +719,7 @@ export const characterEvents: EventDef[] = [
         outcomes: [
           {
             weight: 3,
-            text: '被褥被烘得蓬松又暖和，今晚大家都能睡个好觉。',
+            text: '被褥被烘得蓬松又暖和，摸上去像刚在太阳底下晒过一整天。',
             effects: [
               { stat: 'health', of: 'all', add: 4 },
               { stat: 'sanity', of: 'all', add: 2 },
@@ -912,7 +917,7 @@ export const characterEvents: EventDef[] = [
         hideIfLocked: true,
         outcomes: [
           {
-            text: '克劳德严格按牌理出牌，嘎拉嘛出老千被抓包就大喊“嘎拉嘛！”赖账，{a} 在中间拼命端水劝架。牌局一直打到天黑才散场，克劳德在小本本上郑重记下了一笔“牌品问题”。',
+            text: '克劳德严格按牌理出牌，嘎拉嘛出老千被抓包就大喊“嘎拉嘛！”赖账，{a} 在中间拼命端水劝架。牌局一直打到下午才散场，克劳德在小本本上郑重记下了一笔“牌品问题”。',
             effects: [
               { stat: 'sanity', of: 'all', add: 8 },
               { stat: 'satiety', of: 'all', add: -6 },
@@ -965,7 +970,7 @@ export const characterEvents: EventDef[] = [
         outcomes: [
           {
             weight: 2,
-            text: '{self} 吃下 {lost}，眼睛瞬间亮得像灯泡，哼着歌冲出了门。傍晚，她得意洋洋地抱回了一袋大米和一个罐头——然后“咚”地一声倒在门口，晕碳了。',
+            text: '{self} 吃下 {lost}，眼睛瞬间亮得像灯泡，哼着歌冲出了门。到了下午，她得意洋洋地抱回了一袋大米和一个罐头——然后“咚”地一声倒在门口，晕碳了。',
             effects: [
               { loseRandomItem: { tag: 'food', count: 1, pick: 'cheapest' } },
               { stat: 'satiety', of: 'self', add: 20 },
@@ -1001,7 +1006,7 @@ export const characterEvents: EventDef[] = [
   {
     id: 'kiminai_apology_hole',
     title: '屋里出现了道歉黑洞',
-    text: '角落里传来连续不断、快得像机关枪一样的鞠躬声：“对不起！我太没用了！昨天踩水坑弄脏鞋带也是我的错！我这就自我反省！”{self} 把头埋在膝盖里，整个人散发着浓浓的黑色气场，旁边的人已经快被她道歉到崩溃了。',
+    text: '角落里传来连续不断、快得像机关枪一样的鞠躬声：“对不起！我太没用了！昨天踩水坑弄脏鞋带也是我的错！我这就自我反省！”{self} 把头埋在膝盖里，整个人散发着浓浓的黑色气场，浓得连墙角的灰尘都想往外逃。',
     tags: ['character'],
     cooldown: 5,
     roles: {
@@ -1049,11 +1054,21 @@ export const characterEvents: EventDef[] = [
           },
           {
             weight: 1,
-            text: '糖包安慰了两句，看她还在哭，急得原地滑跪跟着一起道歉。{self} 见状哭得更惨了：“连累你跟着道歉，我果然是避难所的祸害！”全屋人被迫围观了半小时的双人道歉大赛。',
+            text: '糖包安慰了两句，看她还在哭，急得原地滑跪跟着一起道歉。{self} 见状哭得更惨了：“连累你跟着道歉，我果然是避难所的祸害！”两人对着墙角上演了半小时的双人道歉大赛，谁也劝不住谁。',
             effects: [
               { stat: 'sanity', of: 'self', add: 3 },
               { addStatus: 'kneeling', of: { id: 'tangbao' } },
             ],
+          },
+        ],
+      },
+      {
+        id: 'listen',
+        text: '什么也不给，坐到她旁边听她把话说完',
+        outcomes: [
+          {
+            text: '{self} 一口气道歉了半个钟头，声音越来越小，最后靠着墙抽抽搭搭地睡着了。醒来时眼睛还是红的，但总算不再对着空气鞠躬了。',
+            effects: [{ stat: 'sanity', of: 'self', add: 6 }],
           },
         ],
       },
@@ -1075,7 +1090,7 @@ export const characterEvents: EventDef[] = [
   {
     id: 'kiminai_moon_debate',
     title: '谁才是全屋最强万事通',
-    text: '昨晚不知是谁随口问了一句“旧电池里的粉末能不能用来画画”，瞬间点燃了战火！{a} 拍着大背包，眼睛亮晶晶地开始背诵化学反应原理；{b} 则直接抱出一摞废手册，开始引用第 42 页的文献。两人从半夜吵到天亮，眼看还要再辩论一整天。',
+    text: '昨晚不知是谁随口问了一句“旧电池里的粉末能不能用来画画”，瞬间点燃了战火！{a} 拍着大背包，眼睛亮晶晶地开始背诵化学反应原理；{b} 则直接抱出一摞废手册，开始引用第 42 页的文献。两人从昨晚一直吵到天亮，眼看还要再辩论一整天。',
     tags: ['character', 'combo'],
     cooldown: 8,
     roles: {
@@ -1106,7 +1121,7 @@ export const characterEvents: EventDef[] = [
         text: '赶紧鼓掌叫好：“两位老师都太博学了！”',
         outcomes: [
           {
-            text: '两人满意地停下抢答，还顺手把讨论出的冷知识总结成了一份《废墟实用清单》贴在门后。只是大家跟着喝彩了一整夜，嗓子都干了。',
+            text: '两人满意地停下抢答，还顺手把讨论出的冷知识总结成了一份《废墟实用清单》贴在门后。只是被拉着一起喝彩了一上午，嗓子都干了。',
             effects: [
               { stat: 'sanity', of: 'all', add: 4 },
               { stat: 'hydration', of: 'all', add: -4 },
@@ -1121,7 +1136,7 @@ export const characterEvents: EventDef[] = [
         text: '弱弱提醒她们“先去补个觉吧，不然今天没力气干活了”',
         outcomes: [
           {
-            text: '{a} 立刻笑眯眯地说“抱歉抱歉，确实太兴奋啦”，钻回角落秒睡；{b} 却因为思路被强行打断，整个人卡在了原地。其他人总算补了个好觉。',
+            text: '{a} 立刻笑眯眯地说“抱歉抱歉，确实太兴奋啦”，钻回角落秒睡；{b} 却因为思路被强行打断，整个人卡在了原地。不过屋里总算安静下来，能补个好觉了。',
             effects: [
               { stat: 'health', of: 'all', add: 3 },
               { addStatus: 'queueing', of: { role: 'b' } },
@@ -1190,7 +1205,7 @@ export const characterEvents: EventDef[] = [
       },
       {
         id: 'join',
-        text: '干脆加入她们的深夜茶话会',
+        text: '干脆加入她们的通宵茶话会',
         outcomes: [
           {
             text: '几个人围着微光一直聊到太阳升起，从罐头保质期一路聊到了外星人到底存不存在。',

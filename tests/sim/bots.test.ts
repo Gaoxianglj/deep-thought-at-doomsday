@@ -90,12 +90,13 @@ describe('各风格都能正常打完且无被拒绝动作', () => {
       db.maps[0].eventDailyChance = 0;
       for (const s of db.stats) s.dailyDelta = Math.round(s.dailyDelta / 4); // 慢衰减，多数时间物资充足
     });
-    const trips = (bot: typeof sensibleBot) =>
-      simulateMany(content, { ...base, bot, runs: 20, maxDays: 40 }).analytics.expeditions.reduce(
-        (n, e) => n + e.departed,
-        0,
-      );
-    expect(trips(turtleBot)).toBeLessThanOrEqual(trips(sensibleBot));
+    // 比较"每个存活日的外出次数"：龟缩型活得更久时总次数可能更多，但频率应更低
+    const tripRate = (bot: typeof sensibleBot) => {
+      const sum = simulateMany(content, { ...base, bot, runs: 20, maxDays: 40 });
+      const trips = sum.analytics.expeditions.reduce((n, e) => n + e.departed, 0);
+      return trips / (sum.days.mean * 20);
+    };
+    expect(tripRate(turtleBot)).toBeLessThanOrEqual(tripRate(sensibleBot));
   });
 });
 

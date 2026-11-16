@@ -9,7 +9,7 @@ export const cityCommonEvents = [
   {
     id: 'break_in',
     title: '破门',
-    text: '半夜，门外传来沉重的撞击声，有人想闯进来抢东西。',
+    text: '天还没亮，门外就传来沉重的撞击声，有人想趁天没亮闯进来抢东西。',
     tags: ['danger'],
     when: { day: { gte: 4 } },
     cooldown: 6,
@@ -24,9 +24,16 @@ export const cityCommonEvents = [
             effects: [{ item: 'door_lock', add: -1 }],
           },
           {
+            weight: 1,
             when: { all: [{ not: { hasItem: 'door_lock' } }, HAS_ANY] },
-            text: '门被撞开了，他们翻箱倒柜带走了一些东西：{lost}。',
-            effects: [{ loseRandomItem: { count: 2 } }, { setFlag: 'incident', value: true }],
+            text: '用后背死死抵着门，撞击声一下比一下重……最后外面骂了一句，走了。有人的肩膀青了一大块。',
+            effects: [{ stat: 'health', of: 'random', add: -8 }],
+          },
+          {
+            weight: 1,
+            when: { all: [{ not: { hasItem: 'door_lock' } }, HAS_ANY] },
+            text: '门还是被撞开了一条缝，有人伸手进来胡乱抓了一把就跑：{lost}。',
+            effects: [{ loseRandomItem: { count: 1 } }, { setFlag: 'incident', value: true }],
           },
           {
             when: { all: [{ not: { hasItem: 'door_lock' } }, { not: HAS_ANY }] },
@@ -133,7 +140,7 @@ export const cityCommonEvents = [
           },
           {
             when: { all: [{ not: { hasItem: 'flashlight' } }, { hasTag: 'food' }] },
-            text: '黑灯瞎火的，老鼠溜得比你们追得快，还叼走了：{lost}。',
+            text: '储藏间里黑灯瞎火的，老鼠溜得比人追得快，还叼走了：{lost}。',
             effects: [
               { loseRandomItem: { tag: 'food', count: 1 } },
               { setFlag: 'incident', value: true },
@@ -141,7 +148,7 @@ export const cityCommonEvents = [
           },
           {
             when: { all: [{ not: { hasItem: 'flashlight' } }, { not: { hasTag: 'food' } }] },
-            text: '你们摸黑追了半天，老鼠在空荡荡的储藏间里转了一圈，失望地走了。',
+            text: '摸黑追了半天，老鼠在空荡荡的储藏间里转了一圈，失望地走了。',
           },
         ],
       },
@@ -163,7 +170,7 @@ export const cityCommonEvents = [
         outcomes: [
           {
             when: { hasTag: 'food' },
-            text: '过了一晚再去看，老鼠们吃得很尽兴：{lost}。',
+            text: '过了半天再去看，老鼠们吃得很尽兴：{lost}。',
             effects: [
               { loseRandomItem: { tag: 'food', count: 2 } },
               { setFlag: 'incident', value: true },
@@ -226,10 +233,11 @@ export const cityCommonEvents = [
   },
   {
     id: 'night_noise',
-    title: '半夜的响动',
-    text: '半夜，{self} 听到走廊深处有奇怪的声音，像是什么东西在拖着脚走路。',
+    title: '天亮前的响动',
+    text: '天还没亮，{self} 就被走廊深处奇怪的声音弄醒了，像是什么东西在拖着脚走路。',
     tags: ['danger'],
     roles: { self: { where: { not: { hasStatus: 'injured', of: 'self' } } } },
+    when: { day: { gte: 2 } },
     cooldown: 4,
     choices: [
       {
